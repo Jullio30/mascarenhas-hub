@@ -1,0 +1,953 @@
+-- Mascarenhas Hub — setup completo (schema + funções + catálogo). Cole tudo no SQL Editor e clique em Run.
+-- =====================================================================
+-- Mascarenhas Hub — schema.sql
+-- Tabelas, índices, RLS e triggers. Execute ANTES de functions_rpc.sql
+-- e seed_catalog.sql no SQL Editor do Supabase.
+-- =====================================================================
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1. Salas -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(6) UNIQUE NOT NULL,
+  host_player_id UUID NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'LOBBY', -- 'LOBBY' | 'PLAYING' | 'PODIUM'
+  current_game VARCHAR(40),
+  game_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  public_game_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  round_number INT NOT NULL DEFAULT 0,
+  round_ends_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT rooms_code_format CHECK (code ~ '^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$'),
+  CONSTRAINT rooms_status_check CHECK (status IN ('LOBBY', 'PLAYING', 'PODIUM'))
+);
+
+-- 2. Jogadores na Sala --------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.room_players (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
+  auth_user_id UUID NOT NULL, -- ID do Supabase Anonymous Auth
+  nickname VARCHAR(16) NOT NULL,
+  avatar_id VARCHAR(20) NOT NULL DEFAULT 'neon-fox',
+  is_ready BOOLEAN NOT NULL DEFAULT false,
+  is_connected BOOLEAN NOT NULL DEFAULT true,
+  is_kicked BOOLEAN NOT NULL DEFAULT false,
+  match_score INT NOT NULL DEFAULT 0,
+  session_score INT NOT NULL DEFAULT 0,
+  crowns INT NOT NULL DEFAULT 0,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (room_id, auth_user_id),
+  CONSTRAINT room_players_nick_len CHECK (char_length(nickname) BETWEEN 2 AND 16)
+);
+
+-- 3. Segredos da Rodada (isolados: NENHUMA policy de SELECT) -------------
+CREATE TABLE IF NOT EXISTS public.round_secrets (
+  room_id UUID PRIMARY KEY REFERENCES public.rooms(id) ON DELETE CASCADE,
+  round_number INT NOT NULL,
+  -- {"engine": {...estado secreto do motor...}, "views": {"<player_id>": {...visão privada...}}}
+  secret_payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 4. Submissões e Votos da Rodada (auditoria opcional) ------------------
+CREATE TABLE IF NOT EXISTS public.round_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
+  round_number INT NOT NULL,
+  player_id UUID NOT NULL REFERENCES public.room_players(id) ON DELETE CASCADE,
+  submission_type VARCHAR(30) NOT NULL, -- 'VOTE' | 'CLUE' | 'GUESS' | 'VALIDATION' | 'CHALLENGE'
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 5. Catálogo de conteúdo (espelho de src/data/defaultPacks.ts) ---------
+CREATE TABLE IF NOT EXISTS public.catalog_items (
+  id TEXT PRIMARY KEY,
+  game VARCHAR(40) NOT NULL,
+  category TEXT,
+  payload JSONB NOT NULL
+);
+
+-- Índices ----------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_rooms_code ON public.rooms(code);
+CREATE INDEX IF NOT EXISTS idx_rooms_updated ON public.rooms(updated_at);
+CREATE INDEX IF NOT EXISTS idx_room_players_room ON public.room_players(room_id);
+CREATE INDEX IF NOT EXISTS idx_room_players_auth ON public.room_players(auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_room_round ON public.round_submissions(room_id, round_number);
+CREATE INDEX IF NOT EXISTS idx_catalog_game ON public.catalog_items(game);
+
+-- Idempotência: um voto/validação por jogador por rodada
+CREATE UNIQUE INDEX IF NOT EXISTS uq_submission_single
+  ON public.round_submissions(room_id, round_number, player_id, submission_type)
+  WHERE submission_type IN ('VOTE', 'VALIDATION');
+
+-- Trigger de updated_at ----------------------------------------------------
+CREATE OR REPLACE FUNCTION public.tg_touch_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_rooms_updated ON public.rooms;
+CREATE TRIGGER trg_rooms_updated BEFORE UPDATE ON public.rooms
+  FOR EACH ROW EXECUTE FUNCTION public.tg_touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_secrets_updated ON public.round_secrets;
+CREATE TRIGGER trg_secrets_updated BEFORE UPDATE ON public.round_secrets
+  FOR EACH ROW EXECUTE FUNCTION public.tg_touch_updated_at();
+
+-- =====================================================================
+-- Row Level Security
+-- Toda escrita acontece via RPCs SECURITY DEFINER (functions_rpc.sql).
+-- =====================================================================
+ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.room_players ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.round_secrets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.round_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.catalog_items ENABLE ROW LEVEL SECURITY;
+
+-- Membro da sala = possui linha em room_players com o auth.uid() atual
+CREATE OR REPLACE FUNCTION public.is_room_member(p_room_id UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.room_players
+    WHERE room_id = p_room_id AND auth_user_id = auth.uid() AND NOT is_kicked
+  );
+$$;
+
+DROP POLICY IF EXISTS rooms_select_members ON public.rooms;
+CREATE POLICY rooms_select_members ON public.rooms
+  FOR SELECT TO authenticated USING (public.is_room_member(id));
+
+DROP POLICY IF EXISTS players_select_members ON public.room_players;
+CREATE POLICY players_select_members ON public.room_players
+  FOR SELECT TO authenticated USING (public.is_room_member(room_id));
+
+-- round_secrets: SEM policies => nenhum SELECT/INSERT/UPDATE direto é possível.
+
+DROP POLICY IF EXISTS submissions_select_own ON public.round_submissions;
+CREATE POLICY submissions_select_own ON public.round_submissions
+  FOR SELECT TO authenticated USING (
+    player_id IN (SELECT id FROM public.room_players WHERE auth_user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS catalog_public_read ON public.catalog_items;
+CREATE POLICY catalog_public_read ON public.catalog_items
+  FOR SELECT TO anon, authenticated USING (true);
+
+-- =====================================================================
+-- Mascarenhas Hub — functions_rpc.sql
+-- Funções SECURITY DEFINER: lógica atômica, autorização e anti-cheat.
+-- Execute DEPOIS de schema.sql.
+-- =====================================================================
+
+-- Relógio do servidor (cálculo do server_time_offset no cliente e keep-alive)
+CREATE OR REPLACE FUNCTION public.server_now()
+RETURNS TIMESTAMPTZ LANGUAGE sql STABLE AS $$ SELECT now(); $$;
+
+-- Id do jogador (room_players.id) do usuário autenticado na sala
+CREATE OR REPLACE FUNCTION public._my_player_id(p_room_id UUID)
+RETURNS UUID LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT id FROM public.room_players
+  WHERE room_id = p_room_id AND auth_user_id = auth.uid() AND NOT is_kicked
+  LIMIT 1;
+$$;
+
+-- Coleta de lixo: salas sem atualização há mais de 6 horas (CASCADE limpa o resto)
+CREATE OR REPLACE FUNCTION public.cleanup_expired_rooms()
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_count INT;
+BEGIN
+  DELETE FROM public.rooms WHERE updated_at < now() - interval '6 hours';
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+-- Código de 6 caracteres sem ambiguidade (sem 0, O, 1, I, L)
+CREATE OR REPLACE FUNCTION public._generate_room_code()
+RETURNS TEXT LANGUAGE plpgsql AS $$
+DECLARE
+  alphabet CONSTANT TEXT := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  v_code TEXT;
+  i INT;
+BEGIN
+  LOOP
+    v_code := '';
+    FOR i IN 1..6 LOOP
+      v_code := v_code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    END LOOP;
+    EXIT WHEN NOT EXISTS (SELECT 1 FROM public.rooms WHERE code = v_code);
+  END LOOP;
+  RETURN v_code;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public._clean_nickname(p_nickname TEXT)
+RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
+  SELECT left(btrim(regexp_replace(regexp_replace(coalesce(p_nickname, ''), '<[^>]*>', '', 'g'), '\s+', ' ', 'g')), 16);
+$$;
+
+-- Cria sala + jogador anfitrião (dispara a limpeza leve de salas antigas)
+CREATE OR REPLACE FUNCTION public.create_room(p_nickname TEXT, p_avatar TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_room_id UUID;
+  v_player_id UUID := gen_random_uuid();
+  v_code TEXT;
+  v_nick TEXT := public._clean_nickname(p_nickname);
+  v_joined TIMESTAMPTZ := now();
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'NOT_AUTHENTICATED'; END IF;
+  IF char_length(v_nick) < 2 THEN RAISE EXCEPTION 'INVALID_NICKNAME'; END IF;
+
+  PERFORM public.cleanup_expired_rooms();
+
+  v_code := public._generate_room_code();
+  INSERT INTO public.rooms (code, host_player_id) VALUES (v_code, v_player_id) RETURNING id INTO v_room_id;
+  INSERT INTO public.room_players (id, room_id, auth_user_id, nickname, avatar_id, joined_at)
+  VALUES (v_player_id, v_room_id, v_uid, v_nick, left(coalesce(p_avatar, 'neon-fox'), 20), v_joined);
+
+  RETURN jsonb_build_object('room_id', v_room_id, 'code', v_code, 'player_id', v_player_id, 'joined_at', v_joined, 'public_state', NULL);
+END;
+$$;
+
+-- Entra (ou reconecta) na sala preservando o player_id original
+CREATE OR REPLACE FUNCTION public.join_room(p_code TEXT, p_nickname TEXT, p_avatar TEXT)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_room public.rooms%ROWTYPE;
+  v_player public.room_players%ROWTYPE;
+  v_nick TEXT := public._clean_nickname(p_nickname);
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'NOT_AUTHENTICATED'; END IF;
+  IF char_length(v_nick) < 2 THEN RAISE EXCEPTION 'INVALID_NICKNAME'; END IF;
+
+  SELECT * INTO v_room FROM public.rooms WHERE code = upper(p_code);
+  IF NOT FOUND THEN RAISE EXCEPTION 'ROOM_NOT_FOUND'; END IF;
+
+  SELECT * INTO v_player FROM public.room_players WHERE room_id = v_room.id AND auth_user_id = v_uid;
+  IF FOUND THEN
+    IF v_player.is_kicked THEN RAISE EXCEPTION 'KICKED'; END IF;
+    UPDATE public.room_players
+      SET nickname = v_nick, avatar_id = left(coalesce(p_avatar, avatar_id), 20), is_connected = true, last_seen_at = now()
+      WHERE id = v_player.id
+      RETURNING * INTO v_player;
+  ELSE
+    IF (SELECT count(*) FROM public.room_players WHERE room_id = v_room.id AND NOT is_kicked) >= 24 THEN
+      RAISE EXCEPTION 'ROOM_FULL';
+    END IF;
+    INSERT INTO public.room_players (room_id, auth_user_id, nickname, avatar_id)
+    VALUES (v_room.id, v_uid, v_nick, left(coalesce(p_avatar, 'neon-fox'), 20))
+    RETURNING * INTO v_player;
+  END IF;
+
+  UPDATE public.rooms SET updated_at = now() WHERE id = v_room.id;
+
+  RETURN jsonb_build_object(
+    'room_id', v_room.id,
+    'code', v_room.code,
+    'player_id', v_player.id,
+    'joined_at', v_player.joined_at,
+    'public_state', v_room.public_game_state
+  );
+END;
+$$;
+
+-- Estado público persistido (usado na reconexão; nunca contém segredos)
+CREATE OR REPLACE FUNCTION public.get_room_state(p_room_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF public._my_player_id(p_room_id) IS NULL THEN RAISE EXCEPTION 'NOT_A_MEMBER'; END IF;
+  RETURN (SELECT public_game_state FROM public.rooms WHERE id = p_room_id);
+END;
+$$;
+
+-- Anfitrião persiste estado público + segredos da rodada (apenas o host pode)
+CREATE OR REPLACE FUNCTION public.host_save_state(
+  p_room_id UUID,
+  p_public_state JSONB,
+  p_secret_payload JSONB,
+  p_status TEXT,
+  p_current_game TEXT,
+  p_round_number INT,
+  p_round_ends_at TIMESTAMPTZ
+) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL OR NOT EXISTS (SELECT 1 FROM public.rooms WHERE id = p_room_id AND host_player_id = v_me) THEN
+    RAISE EXCEPTION 'NOT_HOST';
+  END IF;
+  IF octet_length(p_public_state::text) > 400000 THEN RAISE EXCEPTION 'STATE_TOO_LARGE'; END IF;
+
+  UPDATE public.rooms SET
+    public_game_state = p_public_state,
+    status = CASE WHEN p_status IN ('LOBBY', 'PLAYING', 'PODIUM') THEN p_status ELSE status END,
+    current_game = p_current_game,
+    game_config = coalesce(p_public_state->'configs', game_config),
+    round_number = coalesce(p_round_number, 0),
+    round_ends_at = p_round_ends_at
+  WHERE id = p_room_id;
+
+  -- Espelha placares para consultas/auditoria
+  UPDATE public.room_players rp SET
+    match_score = coalesce((pl->>'matchScore')::int, rp.match_score),
+    session_score = coalesce((pl->>'sessionScore')::int, rp.session_score),
+    crowns = coalesce((pl->>'crowns')::int, rp.crowns)
+  FROM jsonb_array_elements(coalesce(p_public_state->'players', '[]'::jsonb)) pl
+  WHERE rp.room_id = p_room_id AND rp.id::text = pl->>'id';
+
+  IF p_secret_payload IS NOT NULL THEN
+    INSERT INTO public.round_secrets (room_id, round_number, secret_payload)
+    VALUES (p_room_id, coalesce(p_round_number, 0), p_secret_payload)
+    ON CONFLICT (room_id) DO UPDATE SET round_number = EXCLUDED.round_number, secret_payload = EXCLUDED.secret_payload;
+  END IF;
+END;
+$$;
+
+-- Somente o anfitrião lê o estado secreto completo do motor (para retomar após F5/migração)
+CREATE OR REPLACE FUNCTION public.get_host_secret(p_room_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL OR NOT EXISTS (SELECT 1 FROM public.rooms WHERE id = p_room_id AND host_player_id = v_me) THEN
+    RAISE EXCEPTION 'NOT_HOST';
+  END IF;
+  RETURN (SELECT secret_payload FROM public.round_secrets WHERE room_id = p_room_id);
+END;
+$$;
+
+-- Visão privada do jogador na rodada (ANTI-CHEAT):
+--   Impostor  => {"role":"IMPOSTOR","category":"...","secret_word":null}
+--   Cidadão   => {"role":"CITIZEN","category":"...","secret_word":"..."}
+--   Mega Senha=> secret_word apenas para o Passador; Adivinhador recebe só tamanho/categoria
+--   Música    => a resposta nunca é enviada antes do fim da rodada
+-- Cada jogador recebe EXCLUSIVAMENTE a entrada com seu próprio player_id.
+CREATE OR REPLACE FUNCTION public.get_player_round_view(p_room_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'NOT_A_MEMBER'; END IF;
+  RETURN (SELECT secret_payload->'views'->(v_me::text) FROM public.round_secrets WHERE room_id = p_room_id);
+END;
+$$;
+
+-- Alias com o nome usado na especificação
+CREATE OR REPLACE FUNCTION public.get_my_round_secret(p_room_id UUID)
+RETURNS JSONB LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.get_player_round_view(p_room_id);
+$$;
+
+-- Heartbeat leve (anfitrião a cada 5s): last_seen_at do jogador + mantém a sala viva
+CREATE OR REPLACE FUNCTION public.touch_player(p_room_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL THEN RETURN; END IF;
+  UPDATE public.room_players SET last_seen_at = now(), is_connected = true WHERE id = v_me;
+  UPDATE public.rooms SET updated_at = now() WHERE id = p_room_id AND host_player_id = v_me;
+END;
+$$;
+
+-- Migração automática: assume o host se o atual sumiu há mais de 15s
+CREATE OR REPLACE FUNCTION public.claim_host_if_abandoned(p_room_id UUID)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_me UUID := public._my_player_id(p_room_id);
+  v_host public.room_players%ROWTYPE;
+  v_room public.rooms%ROWTYPE;
+BEGIN
+  IF v_me IS NULL THEN RETURN false; END IF;
+  SELECT * INTO v_room FROM public.rooms WHERE id = p_room_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN false; END IF;
+  IF v_room.host_player_id = v_me THEN RETURN true; END IF;
+
+  SELECT * INTO v_host FROM public.room_players WHERE id = v_room.host_player_id;
+  IF FOUND AND NOT v_host.is_kicked AND v_host.last_seen_at > now() - interval '15 seconds' THEN
+    RETURN false;
+  END IF;
+
+  UPDATE public.room_players SET is_connected = false WHERE id = v_room.host_player_id;
+  UPDATE public.rooms SET host_player_id = v_me WHERE id = p_room_id;
+  UPDATE public.room_players SET last_seen_at = now() WHERE id = v_me;
+  RETURN true;
+END;
+$$;
+
+-- Transferência manual de anfitrião
+CREATE OR REPLACE FUNCTION public.transfer_host(p_room_id UUID, p_new_host UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL OR NOT EXISTS (SELECT 1 FROM public.rooms WHERE id = p_room_id AND host_player_id = v_me) THEN
+    RAISE EXCEPTION 'NOT_HOST';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.room_players WHERE id = p_new_host AND room_id = p_room_id AND NOT is_kicked) THEN
+    RAISE EXCEPTION 'INVALID_PLAYER';
+  END IF;
+  UPDATE public.room_players SET last_seen_at = now() WHERE id = p_new_host;
+  UPDATE public.rooms SET host_player_id = p_new_host WHERE id = p_room_id;
+END;
+$$;
+
+-- Remoção (kick) — o jogador perde acesso às RPCs e não consegue reentrar
+CREATE OR REPLACE FUNCTION public.kick_player(p_room_id UUID, p_player_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL OR NOT EXISTS (SELECT 1 FROM public.rooms WHERE id = p_room_id AND host_player_id = v_me) THEN
+    RAISE EXCEPTION 'NOT_HOST';
+  END IF;
+  IF p_player_id = v_me THEN RAISE EXCEPTION 'CANNOT_KICK_SELF'; END IF;
+  UPDATE public.room_players SET is_kicked = true, is_connected = false WHERE id = p_player_id AND room_id = p_room_id;
+END;
+$$;
+
+-- Registro auditável/idempotente de submissões (UNIQUE para VOTE/VALIDATION)
+CREATE OR REPLACE FUNCTION public.record_submission(p_room_id UUID, p_round_number INT, p_type TEXT, p_payload JSONB)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_me UUID := public._my_player_id(p_room_id);
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'NOT_A_MEMBER'; END IF;
+  INSERT INTO public.round_submissions (room_id, round_number, player_id, submission_type, payload)
+  VALUES (p_room_id, p_round_number, v_me, upper(left(p_type, 30)), p_payload)
+  ON CONFLICT DO NOTHING;
+END;
+$$;
+
+-- Permissões: apenas usuários autenticados (inclui anônimos) executam as RPCs
+REVOKE ALL ON FUNCTION public.create_room(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.join_room(TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_room_state(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_save_state(UUID, JSONB, JSONB, TEXT, TEXT, INT, TIMESTAMPTZ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_host_secret(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_player_round_view(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_my_round_secret(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.touch_player(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.claim_host_if_abandoned(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.transfer_host(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.kick_player(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_submission(UUID, INT, TEXT, JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.cleanup_expired_rooms() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._my_player_id(UUID) FROM PUBLIC;
+
+GRANT EXECUTE ON FUNCTION public.server_now() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_room(TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.join_room(TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_room_state(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.host_save_state(UUID, JSONB, JSONB, TEXT, TEXT, INT, TIMESTAMPTZ) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_host_secret(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_player_round_view(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_round_secret(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.touch_player(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_host_if_abandoned(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.transfer_host(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.kick_player(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.record_submission(UUID, INT, TEXT, JSONB) TO authenticated;
+
+-- =====================================================================
+-- Mascarenhas Hub — seed_catalog.sql (GERADO por scripts/generate-seed.mjs)
+-- Catálogo inicial PT-BR: 100 cartas do Desafio dos 5 Segundos,
+-- 13 categorias do Impostor, 125 senhas do Mega Senha,
+-- 60 músicas do Adivinhe a Música e 48 temas do Categorias.
+-- Execute DEPOIS de schema.sql. Idempotente (ON CONFLICT DO UPDATE).
+-- =====================================================================
+
+INSERT INTO public.catalog_items (id, game, category, payload) VALUES
+  ('d5:cot01', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 frutas vermelhas"}'::jsonb),
+  ('d5:cot02', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que você encontra em uma cozinha"}'::jsonb),
+  ('d5:cot03', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que se leva para a praia"}'::jsonb),
+  ('d5:cot04', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 tipos de calçado"}'::jsonb),
+  ('d5:cot05', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que ficam na geladeira"}'::jsonb),
+  ('d5:cot06', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 profissões que usam uniforme"}'::jsonb),
+  ('d5:cot07', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que se faz ao acordar"}'::jsonb),
+  ('d5:cot08', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 itens de material escolar"}'::jsonb),
+  ('d5:cot09', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 sabores de pizza"}'::jsonb),
+  ('d5:cot10', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 cômodos de uma casa"}'::jsonb),
+  ('d5:cot11', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 meios de transporte"}'::jsonb),
+  ('d5:cot12', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que você compra na farmácia"}'::jsonb),
+  ('d5:cot13', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 animais de estimação"}'::jsonb),
+  ('d5:cot14', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 temperos de cozinha"}'::jsonb),
+  ('d5:cot15', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que têm tela"}'::jsonb),
+  ('d5:cot16', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 tipos de doce de festa junina"}'::jsonb),
+  ('d5:cot17', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 coisas que se usa no banho"}'::jsonb),
+  ('d5:cot18', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 eletrodomésticos"}'::jsonb),
+  ('d5:cot19', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 tipos de pão"}'::jsonb),
+  ('d5:cot20', 'desafio-5-segundos', 'Cotidiano', '{"text":"Cite 3 peças de roupa de inverno"}'::jsonb),
+  ('d5:pop01', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 novelas brasileiras"}'::jsonb),
+  ('d5:pop02', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 cantoras brasileiras"}'::jsonb),
+  ('d5:pop03', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 filmes da Disney"}'::jsonb),
+  ('d5:pop04', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 personagens da Turma da Mônica"}'::jsonb),
+  ('d5:pop05', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 apresentadores de TV"}'::jsonb),
+  ('d5:pop06', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 bandas de rock nacional"}'::jsonb),
+  ('d5:pop07', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 séries de streaming"}'::jsonb),
+  ('d5:pop08', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 duplas sertanejas"}'::jsonb),
+  ('d5:pop09', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 super-heróis da Marvel"}'::jsonb),
+  ('d5:pop10', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 filmes de terror"}'::jsonb),
+  ('d5:pop11', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 programas de auditório"}'::jsonb),
+  ('d5:pop12', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 personagens de desenho animado"}'::jsonb),
+  ('d5:pop13', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 rappers"}'::jsonb),
+  ('d5:pop14', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 reality shows"}'::jsonb),
+  ('d5:pop15', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 vilões de filmes"}'::jsonb),
+  ('d5:pop16', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 princesas de contos de fadas"}'::jsonb),
+  ('d5:pop17', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 humoristas brasileiros"}'::jsonb),
+  ('d5:pop18', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 filmes que ganharam o Oscar"}'::jsonb),
+  ('d5:pop19', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 músicas de Carnaval"}'::jsonb),
+  ('d5:pop20', 'desafio-5-segundos', 'Cultura Pop', '{"text":"Cite 3 youtubers ou streamers"}'::jsonb),
+  ('d5:esp01', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 times de futebol brasileiros"}'::jsonb),
+  ('d5:esp02', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 esportes olímpicos"}'::jsonb),
+  ('d5:esp03', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 jogadores da Seleção Brasileira"}'::jsonb),
+  ('d5:esp04', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 esportes com bola"}'::jsonb),
+  ('d5:esp05', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 esportes aquáticos"}'::jsonb),
+  ('d5:esp06', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 posições de um time de futebol"}'::jsonb),
+  ('d5:esp07', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 pilotos de Fórmula 1"}'::jsonb),
+  ('d5:esp08', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 artes marciais"}'::jsonb),
+  ('d5:esp09', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 estádios de futebol"}'::jsonb),
+  ('d5:esp10', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 países que já ganharam a Copa do Mundo"}'::jsonb),
+  ('d5:esp11', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 equipamentos de academia"}'::jsonb),
+  ('d5:esp12', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 esportes radicais"}'::jsonb),
+  ('d5:esp13', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 tenistas famosos"}'::jsonb),
+  ('d5:esp14', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 esportes de inverno"}'::jsonb),
+  ('d5:esp15', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 coisas que um juiz de futebol usa"}'::jsonb),
+  ('d5:esp16', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 jogadores de basquete"}'::jsonb),
+  ('d5:esp17', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 modalidades de atletismo"}'::jsonb),
+  ('d5:esp18', 'desafio-5-segundos', 'Esportes', '{"text":"Cite 3 clubes de futebol europeus"}'::jsonb),
+  ('d5:gek01', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 personagens de Pokémon"}'::jsonb),
+  ('d5:gek02', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 consoles de videogame"}'::jsonb),
+  ('d5:gek03', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 personagens de Dragon Ball"}'::jsonb),
+  ('d5:gek04', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 jogos de tiro"}'::jsonb),
+  ('d5:gek05', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 linguagens de programação"}'::jsonb),
+  ('d5:gek06', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 animes"}'::jsonb),
+  ('d5:gek07', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 personagens de Star Wars"}'::jsonb),
+  ('d5:gek08', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 jogos de celular"}'::jsonb),
+  ('d5:gek09', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 redes sociais"}'::jsonb),
+  ('d5:gek10', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 personagens da Nintendo"}'::jsonb),
+  ('d5:gek11', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 casas ou personagens de Harry Potter"}'::jsonb),
+  ('d5:gek12', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 jogos de tabuleiro"}'::jsonb),
+  ('d5:gek13', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 marcas de celular"}'::jsonb),
+  ('d5:gek14', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 sagas de filmes de ficção científica"}'::jsonb),
+  ('d5:gek15', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 vilões de videogame"}'::jsonb),
+  ('d5:gek16', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 cartas ou peças de baralho/xadrez"}'::jsonb),
+  ('d5:gek17', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 jogos de luta"}'::jsonb),
+  ('d5:gek18', 'desafio-5-segundos', 'Geek', '{"text":"Cite 3 aplicativos de mensagem"}'::jsonb),
+  ('d5:cao01', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você nunca deve dizer no primeiro encontro"}'::jsonb),
+  ('d5:cao02', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 desculpas para chegar atrasado"}'::jsonb),
+  ('d5:cao03', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que dão vergonha em público"}'::jsonb),
+  ('d5:cao04', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que sua mãe sempre fala"}'::jsonb),
+  ('d5:cao05', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 lugares péssimos para cochilar"}'::jsonb),
+  ('d5:cao06', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você levaria para uma ilha deserta"}'::jsonb),
+  ('d5:cao07', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que não se deve fazer em um velório"}'::jsonb),
+  ('d5:cao08', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 apelidos ruins para um pet"}'::jsonb),
+  ('d5:cao09', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você faria se ficasse invisível"}'::jsonb),
+  ('d5:cao10', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 desculpas para não ir à academia"}'::jsonb),
+  ('d5:cao11', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas estranhas para colocar na pizza"}'::jsonb),
+  ('d5:cao12', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você diria para um alienígena"}'::jsonb),
+  ('d5:cao13', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 presentes horríveis de amigo secreto"}'::jsonb),
+  ('d5:cao14', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 frases de quem perdeu no videogame"}'::jsonb),
+  ('d5:cao15', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que acontecem em casamento de família"}'::jsonb),
+  ('d5:cao16', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que não se deve mandar no grupo da família"}'::jsonb),
+  ('d5:cao17', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 motivos para terminar um namoro"}'::jsonb),
+  ('d5:cao18', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você esconderia da visita"}'::jsonb),
+  ('d5:cao19', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 superpoderes inúteis"}'::jsonb),
+  ('d5:cao20', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 frases de quem está mentindo"}'::jsonb),
+  ('d5:cao21', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que você nunca deve pesquisar no Google"}'::jsonb),
+  ('d5:cao22', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 coisas que dá para fazer com uma colher"}'::jsonb),
+  ('d5:cao23', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 situações em que você fingiria estar ao telefone"}'::jsonb),
+  ('d5:cao24', 'desafio-5-segundos', 'Caos', '{"text":"Cite 3 nomes péssimos para um bebê"}'::jsonb),
+  ('imp:Lugares:0', 'impostor', 'Lugares', '{"word":"Aeroporto"}'::jsonb),
+  ('imp:Lugares:1', 'impostor', 'Lugares', '{"word":"Hospital"}'::jsonb),
+  ('imp:Lugares:2', 'impostor', 'Lugares', '{"word":"Praia"}'::jsonb),
+  ('imp:Lugares:3', 'impostor', 'Lugares', '{"word":"Cinema"}'::jsonb),
+  ('imp:Lugares:4', 'impostor', 'Lugares', '{"word":"Escola"}'::jsonb),
+  ('imp:Lugares:5', 'impostor', 'Lugares', '{"word":"Supermercado"}'::jsonb),
+  ('imp:Lugares:6', 'impostor', 'Lugares', '{"word":"Biblioteca"}'::jsonb),
+  ('imp:Lugares:7', 'impostor', 'Lugares', '{"word":"Academia"}'::jsonb),
+  ('imp:Lugares:8', 'impostor', 'Lugares', '{"word":"Igreja"}'::jsonb),
+  ('imp:Lugares:9', 'impostor', 'Lugares', '{"word":"Zoológico"}'::jsonb),
+  ('imp:Lugares:10', 'impostor', 'Lugares', '{"word":"Padaria"}'::jsonb),
+  ('imp:Lugares:11', 'impostor', 'Lugares', '{"word":"Estádio"}'::jsonb),
+  ('imp:Comidas:0', 'impostor', 'Comidas', '{"word":"Pizza"}'::jsonb),
+  ('imp:Comidas:1', 'impostor', 'Comidas', '{"word":"Feijoada"}'::jsonb),
+  ('imp:Comidas:2', 'impostor', 'Comidas', '{"word":"Brigadeiro"}'::jsonb),
+  ('imp:Comidas:3', 'impostor', 'Comidas', '{"word":"Coxinha"}'::jsonb),
+  ('imp:Comidas:4', 'impostor', 'Comidas', '{"word":"Lasanha"}'::jsonb),
+  ('imp:Comidas:5', 'impostor', 'Comidas', '{"word":"Sushi"}'::jsonb),
+  ('imp:Comidas:6', 'impostor', 'Comidas', '{"word":"Pastel"}'::jsonb),
+  ('imp:Comidas:7', 'impostor', 'Comidas', '{"word":"Hambúrguer"}'::jsonb),
+  ('imp:Comidas:8', 'impostor', 'Comidas', '{"word":"Pão de queijo"}'::jsonb),
+  ('imp:Comidas:9', 'impostor', 'Comidas', '{"word":"Açaí"}'::jsonb),
+  ('imp:Comidas:10', 'impostor', 'Comidas', '{"word":"Churrasco"}'::jsonb),
+  ('imp:Comidas:11', 'impostor', 'Comidas', '{"word":"Tapioca"}'::jsonb),
+  ('imp:Animais:0', 'impostor', 'Animais', '{"word":"Girafa"}'::jsonb),
+  ('imp:Animais:1', 'impostor', 'Animais', '{"word":"Pinguim"}'::jsonb),
+  ('imp:Animais:2', 'impostor', 'Animais', '{"word":"Cachorro"}'::jsonb),
+  ('imp:Animais:3', 'impostor', 'Animais', '{"word":"Tubarão"}'::jsonb),
+  ('imp:Animais:4', 'impostor', 'Animais', '{"word":"Elefante"}'::jsonb),
+  ('imp:Animais:5', 'impostor', 'Animais', '{"word":"Capivara"}'::jsonb),
+  ('imp:Animais:6', 'impostor', 'Animais', '{"word":"Coruja"}'::jsonb),
+  ('imp:Animais:7', 'impostor', 'Animais', '{"word":"Cobra"}'::jsonb),
+  ('imp:Animais:8', 'impostor', 'Animais', '{"word":"Macaco"}'::jsonb),
+  ('imp:Animais:9', 'impostor', 'Animais', '{"word":"Tartaruga"}'::jsonb),
+  ('imp:Animais:10', 'impostor', 'Animais', '{"word":"Leão"}'::jsonb),
+  ('imp:Animais:11', 'impostor', 'Animais', '{"word":"Polvo"}'::jsonb),
+  ('imp:Profissões:0', 'impostor', 'Profissões', '{"word":"Médico"}'::jsonb),
+  ('imp:Profissões:1', 'impostor', 'Profissões', '{"word":"Bombeiro"}'::jsonb),
+  ('imp:Profissões:2', 'impostor', 'Profissões', '{"word":"Professor"}'::jsonb),
+  ('imp:Profissões:3', 'impostor', 'Profissões', '{"word":"Astronauta"}'::jsonb),
+  ('imp:Profissões:4', 'impostor', 'Profissões', '{"word":"Pedreiro"}'::jsonb),
+  ('imp:Profissões:5', 'impostor', 'Profissões', '{"word":"Advogado"}'::jsonb),
+  ('imp:Profissões:6', 'impostor', 'Profissões', '{"word":"Cozinheiro"}'::jsonb),
+  ('imp:Profissões:7', 'impostor', 'Profissões', '{"word":"Policial"}'::jsonb),
+  ('imp:Profissões:8', 'impostor', 'Profissões', '{"word":"Dentista"}'::jsonb),
+  ('imp:Profissões:9', 'impostor', 'Profissões', '{"word":"Palhaço"}'::jsonb),
+  ('imp:Profissões:10', 'impostor', 'Profissões', '{"word":"Motorista"}'::jsonb),
+  ('imp:Profissões:11', 'impostor', 'Profissões', '{"word":"Piloto"}'::jsonb),
+  ('imp:Objetos:0', 'impostor', 'Objetos', '{"word":"Guarda-chuva"}'::jsonb),
+  ('imp:Objetos:1', 'impostor', 'Objetos', '{"word":"Tesoura"}'::jsonb),
+  ('imp:Objetos:2', 'impostor', 'Objetos', '{"word":"Espelho"}'::jsonb),
+  ('imp:Objetos:3', 'impostor', 'Objetos', '{"word":"Relógio"}'::jsonb),
+  ('imp:Objetos:4', 'impostor', 'Objetos', '{"word":"Travesseiro"}'::jsonb),
+  ('imp:Objetos:5', 'impostor', 'Objetos', '{"word":"Vassoura"}'::jsonb),
+  ('imp:Objetos:6', 'impostor', 'Objetos', '{"word":"Mochila"}'::jsonb),
+  ('imp:Objetos:7', 'impostor', 'Objetos', '{"word":"Óculos"}'::jsonb),
+  ('imp:Objetos:8', 'impostor', 'Objetos', '{"word":"Chave"}'::jsonb),
+  ('imp:Objetos:9', 'impostor', 'Objetos', '{"word":"Lanterna"}'::jsonb),
+  ('imp:Objetos:10', 'impostor', 'Objetos', '{"word":"Escova de dentes"}'::jsonb),
+  ('imp:Objetos:11', 'impostor', 'Objetos', '{"word":"Controle remoto"}'::jsonb),
+  ('imp:Esportes:0', 'impostor', 'Esportes', '{"word":"Futebol"}'::jsonb),
+  ('imp:Esportes:1', 'impostor', 'Esportes', '{"word":"Vôlei"}'::jsonb),
+  ('imp:Esportes:2', 'impostor', 'Esportes', '{"word":"Natação"}'::jsonb),
+  ('imp:Esportes:3', 'impostor', 'Esportes', '{"word":"Skate"}'::jsonb),
+  ('imp:Esportes:4', 'impostor', 'Esportes', '{"word":"Boxe"}'::jsonb),
+  ('imp:Esportes:5', 'impostor', 'Esportes', '{"word":"Basquete"}'::jsonb),
+  ('imp:Esportes:6', 'impostor', 'Esportes', '{"word":"Surfe"}'::jsonb),
+  ('imp:Esportes:7', 'impostor', 'Esportes', '{"word":"Tênis"}'::jsonb),
+  ('imp:Esportes:8', 'impostor', 'Esportes', '{"word":"Judô"}'::jsonb),
+  ('imp:Esportes:9', 'impostor', 'Esportes', '{"word":"Ciclismo"}'::jsonb),
+  ('imp:Esportes:10', 'impostor', 'Esportes', '{"word":"Xadrez"}'::jsonb),
+  ('imp:Esportes:11', 'impostor', 'Esportes', '{"word":"Handebol"}'::jsonb),
+  ('imp:Festas e Eventos:0', 'impostor', 'Festas e Eventos', '{"word":"Casamento"}'::jsonb),
+  ('imp:Festas e Eventos:1', 'impostor', 'Festas e Eventos', '{"word":"Carnaval"}'::jsonb),
+  ('imp:Festas e Eventos:2', 'impostor', 'Festas e Eventos', '{"word":"Festa junina"}'::jsonb),
+  ('imp:Festas e Eventos:3', 'impostor', 'Festas e Eventos', '{"word":"Aniversário"}'::jsonb),
+  ('imp:Festas e Eventos:4', 'impostor', 'Festas e Eventos', '{"word":"Réveillon"}'::jsonb),
+  ('imp:Festas e Eventos:5', 'impostor', 'Festas e Eventos', '{"word":"Formatura"}'::jsonb),
+  ('imp:Festas e Eventos:6', 'impostor', 'Festas e Eventos', '{"word":"Chá de bebê"}'::jsonb),
+  ('imp:Festas e Eventos:7', 'impostor', 'Festas e Eventos', '{"word":"Halloween"}'::jsonb),
+  ('imp:Festas e Eventos:8', 'impostor', 'Festas e Eventos', '{"word":"Natal"}'::jsonb),
+  ('imp:Festas e Eventos:9', 'impostor', 'Festas e Eventos', '{"word":"Churrasco de família"}'::jsonb),
+  ('imp:Festas e Eventos:10', 'impostor', 'Festas e Eventos', '{"word":"Show de rock"}'::jsonb),
+  ('imp:Festas e Eventos:11', 'impostor', 'Festas e Eventos', '{"word":"Velório"}'::jsonb),
+  ('imp:Transportes:0', 'impostor', 'Transportes', '{"word":"Avião"}'::jsonb),
+  ('imp:Transportes:1', 'impostor', 'Transportes', '{"word":"Bicicleta"}'::jsonb),
+  ('imp:Transportes:2', 'impostor', 'Transportes', '{"word":"Metrô"}'::jsonb),
+  ('imp:Transportes:3', 'impostor', 'Transportes', '{"word":"Navio"}'::jsonb),
+  ('imp:Transportes:4', 'impostor', 'Transportes', '{"word":"Helicóptero"}'::jsonb),
+  ('imp:Transportes:5', 'impostor', 'Transportes', '{"word":"Moto"}'::jsonb),
+  ('imp:Transportes:6', 'impostor', 'Transportes', '{"word":"Ônibus"}'::jsonb),
+  ('imp:Transportes:7', 'impostor', 'Transportes', '{"word":"Trem"}'::jsonb),
+  ('imp:Transportes:8', 'impostor', 'Transportes', '{"word":"Patinete"}'::jsonb),
+  ('imp:Transportes:9', 'impostor', 'Transportes', '{"word":"Submarino"}'::jsonb),
+  ('imp:Transportes:10', 'impostor', 'Transportes', '{"word":"Balão"}'::jsonb),
+  ('imp:Transportes:11', 'impostor', 'Transportes', '{"word":"Carroça"}'::jsonb),
+  ('imp:Partes da Casa:0', 'impostor', 'Partes da Casa', '{"word":"Cozinha"}'::jsonb),
+  ('imp:Partes da Casa:1', 'impostor', 'Partes da Casa', '{"word":"Banheiro"}'::jsonb),
+  ('imp:Partes da Casa:2', 'impostor', 'Partes da Casa', '{"word":"Garagem"}'::jsonb),
+  ('imp:Partes da Casa:3', 'impostor', 'Partes da Casa', '{"word":"Sótão"}'::jsonb),
+  ('imp:Partes da Casa:4', 'impostor', 'Partes da Casa', '{"word":"Varanda"}'::jsonb),
+  ('imp:Partes da Casa:5', 'impostor', 'Partes da Casa', '{"word":"Quarto"}'::jsonb),
+  ('imp:Partes da Casa:6', 'impostor', 'Partes da Casa', '{"word":"Lavanderia"}'::jsonb),
+  ('imp:Partes da Casa:7', 'impostor', 'Partes da Casa', '{"word":"Sala de estar"}'::jsonb),
+  ('imp:Partes da Casa:8', 'impostor', 'Partes da Casa', '{"word":"Porão"}'::jsonb),
+  ('imp:Partes da Casa:9', 'impostor', 'Partes da Casa', '{"word":"Quintal"}'::jsonb),
+  ('imp:Partes da Casa:10', 'impostor', 'Partes da Casa', '{"word":"Escada"}'::jsonb),
+  ('imp:Partes da Casa:11', 'impostor', 'Partes da Casa', '{"word":"Telhado"}'::jsonb),
+  ('imp:Personagens Famosos:0', 'impostor', 'Personagens Famosos', '{"word":"Papai Noel"}'::jsonb),
+  ('imp:Personagens Famosos:1', 'impostor', 'Personagens Famosos', '{"word":"Saci"}'::jsonb),
+  ('imp:Personagens Famosos:2', 'impostor', 'Personagens Famosos', '{"word":"Batman"}'::jsonb),
+  ('imp:Personagens Famosos:3', 'impostor', 'Personagens Famosos', '{"word":"Mickey"}'::jsonb),
+  ('imp:Personagens Famosos:4', 'impostor', 'Personagens Famosos', '{"word":"Chaves"}'::jsonb),
+  ('imp:Personagens Famosos:5', 'impostor', 'Personagens Famosos', '{"word":"Harry Potter"}'::jsonb),
+  ('imp:Personagens Famosos:6', 'impostor', 'Personagens Famosos', '{"word":"Mônica"}'::jsonb),
+  ('imp:Personagens Famosos:7', 'impostor', 'Personagens Famosos', '{"word":"Homem-Aranha"}'::jsonb),
+  ('imp:Personagens Famosos:8', 'impostor', 'Personagens Famosos', '{"word":"Cinderela"}'::jsonb),
+  ('imp:Personagens Famosos:9', 'impostor', 'Personagens Famosos', '{"word":"Shrek"}'::jsonb),
+  ('imp:Personagens Famosos:10', 'impostor', 'Personagens Famosos', '{"word":"Pikachu"}'::jsonb),
+  ('imp:Personagens Famosos:11', 'impostor', 'Personagens Famosos', '{"word":"Mario"}'::jsonb),
+  ('imp:Instrumentos Musicais:0', 'impostor', 'Instrumentos Musicais', '{"word":"Violão"}'::jsonb),
+  ('imp:Instrumentos Musicais:1', 'impostor', 'Instrumentos Musicais', '{"word":"Bateria"}'::jsonb),
+  ('imp:Instrumentos Musicais:2', 'impostor', 'Instrumentos Musicais', '{"word":"Piano"}'::jsonb),
+  ('imp:Instrumentos Musicais:3', 'impostor', 'Instrumentos Musicais', '{"word":"Pandeiro"}'::jsonb),
+  ('imp:Instrumentos Musicais:4', 'impostor', 'Instrumentos Musicais', '{"word":"Saxofone"}'::jsonb),
+  ('imp:Instrumentos Musicais:5', 'impostor', 'Instrumentos Musicais', '{"word":"Violino"}'::jsonb),
+  ('imp:Instrumentos Musicais:6', 'impostor', 'Instrumentos Musicais', '{"word":"Flauta"}'::jsonb),
+  ('imp:Instrumentos Musicais:7', 'impostor', 'Instrumentos Musicais', '{"word":"Sanfona"}'::jsonb),
+  ('imp:Instrumentos Musicais:8', 'impostor', 'Instrumentos Musicais', '{"word":"Cavaquinho"}'::jsonb),
+  ('imp:Instrumentos Musicais:9', 'impostor', 'Instrumentos Musicais', '{"word":"Trompete"}'::jsonb),
+  ('imp:Instrumentos Musicais:10', 'impostor', 'Instrumentos Musicais', '{"word":"Harpa"}'::jsonb),
+  ('imp:Instrumentos Musicais:11', 'impostor', 'Instrumentos Musicais', '{"word":"Berimbau"}'::jsonb),
+  ('imp:Bebidas:0', 'impostor', 'Bebidas', '{"word":"Café"}'::jsonb),
+  ('imp:Bebidas:1', 'impostor', 'Bebidas', '{"word":"Caipirinha"}'::jsonb),
+  ('imp:Bebidas:2', 'impostor', 'Bebidas', '{"word":"Suco de laranja"}'::jsonb),
+  ('imp:Bebidas:3', 'impostor', 'Bebidas', '{"word":"Refrigerante"}'::jsonb),
+  ('imp:Bebidas:4', 'impostor', 'Bebidas', '{"word":"Chimarrão"}'::jsonb),
+  ('imp:Bebidas:5', 'impostor', 'Bebidas', '{"word":"Água de coco"}'::jsonb),
+  ('imp:Bebidas:6', 'impostor', 'Bebidas', '{"word":"Chá"}'::jsonb),
+  ('imp:Bebidas:7', 'impostor', 'Bebidas', '{"word":"Milkshake"}'::jsonb),
+  ('imp:Bebidas:8', 'impostor', 'Bebidas', '{"word":"Vinho"}'::jsonb),
+  ('imp:Bebidas:9', 'impostor', 'Bebidas', '{"word":"Achocolatado"}'::jsonb),
+  ('imp:Bebidas:10', 'impostor', 'Bebidas', '{"word":"Limonada"}'::jsonb),
+  ('imp:Bebidas:11', 'impostor', 'Bebidas', '{"word":"Guaraná"}'::jsonb),
+  ('imp:Natureza:0', 'impostor', 'Natureza', '{"word":"Vulcão"}'::jsonb),
+  ('imp:Natureza:1', 'impostor', 'Natureza', '{"word":"Cachoeira"}'::jsonb),
+  ('imp:Natureza:2', 'impostor', 'Natureza', '{"word":"Deserto"}'::jsonb),
+  ('imp:Natureza:3', 'impostor', 'Natureza', '{"word":"Floresta"}'::jsonb),
+  ('imp:Natureza:4', 'impostor', 'Natureza', '{"word":"Montanha"}'::jsonb),
+  ('imp:Natureza:5', 'impostor', 'Natureza', '{"word":"Arco-íris"}'::jsonb),
+  ('imp:Natureza:6', 'impostor', 'Natureza', '{"word":"Tempestade"}'::jsonb),
+  ('imp:Natureza:7', 'impostor', 'Natureza', '{"word":"Caverna"}'::jsonb),
+  ('imp:Natureza:8', 'impostor', 'Natureza', '{"word":"Oceano"}'::jsonb),
+  ('imp:Natureza:9', 'impostor', 'Natureza', '{"word":"Geleira"}'::jsonb),
+  ('imp:Natureza:10', 'impostor', 'Natureza', '{"word":"Lua"}'::jsonb),
+  ('imp:Natureza:11', 'impostor', 'Natureza', '{"word":"Terremoto"}'::jsonb),
+  ('ms:0', 'mega-senha', 'Animais', '{"word":"Cachorro"}'::jsonb),
+  ('ms:1', 'mega-senha', 'Animais', '{"word":"Gato"}'::jsonb),
+  ('ms:2', 'mega-senha', 'Animais', '{"word":"Elefante"}'::jsonb),
+  ('ms:3', 'mega-senha', 'Animais', '{"word":"Girafa"}'::jsonb),
+  ('ms:4', 'mega-senha', 'Animais', '{"word":"Formiga"}'::jsonb),
+  ('ms:5', 'mega-senha', 'Animais', '{"word":"Baleia"}'::jsonb),
+  ('ms:6', 'mega-senha', 'Animais', '{"word":"Coruja"}'::jsonb),
+  ('ms:7', 'mega-senha', 'Animais', '{"word":"Cavalo"}'::jsonb),
+  ('ms:8', 'mega-senha', 'Animais', '{"word":"Abelha"}'::jsonb),
+  ('ms:9', 'mega-senha', 'Animais', '{"word":"Tubarão"}'::jsonb),
+  ('ms:10', 'mega-senha', 'Animais', '{"word":"Papagaio"}'::jsonb),
+  ('ms:11', 'mega-senha', 'Animais', '{"word":"Jacaré"}'::jsonb),
+  ('ms:12', 'mega-senha', 'Animais', '{"word":"Borboleta"}'::jsonb),
+  ('ms:13', 'mega-senha', 'Animais', '{"word":"Pinguim"}'::jsonb),
+  ('ms:14', 'mega-senha', 'Animais', '{"word":"Coelho"}'::jsonb),
+  ('ms:15', 'mega-senha', 'Objetos', '{"word":"Cadeira"}'::jsonb),
+  ('ms:16', 'mega-senha', 'Objetos', '{"word":"Garfo"}'::jsonb),
+  ('ms:17', 'mega-senha', 'Objetos', '{"word":"Tesoura"}'::jsonb),
+  ('ms:18', 'mega-senha', 'Objetos', '{"word":"Relógio"}'::jsonb),
+  ('ms:19', 'mega-senha', 'Objetos', '{"word":"Escova"}'::jsonb),
+  ('ms:20', 'mega-senha', 'Objetos', '{"word":"Guarda-chuva"}'::jsonb),
+  ('ms:21', 'mega-senha', 'Objetos', '{"word":"Espelho"}'::jsonb),
+  ('ms:22', 'mega-senha', 'Objetos', '{"word":"Martelo"}'::jsonb),
+  ('ms:23', 'mega-senha', 'Objetos', '{"word":"Vela"}'::jsonb),
+  ('ms:24', 'mega-senha', 'Objetos', '{"word":"Chave"}'::jsonb),
+  ('ms:25', 'mega-senha', 'Objetos', '{"word":"Travesseiro"}'::jsonb),
+  ('ms:26', 'mega-senha', 'Objetos', '{"word":"Bússola"}'::jsonb),
+  ('ms:27', 'mega-senha', 'Objetos', '{"word":"Lâmpada"}'::jsonb),
+  ('ms:28', 'mega-senha', 'Objetos', '{"word":"Panela"}'::jsonb),
+  ('ms:29', 'mega-senha', 'Objetos', '{"word":"Carteira"}'::jsonb),
+  ('ms:30', 'mega-senha', 'Comidas', '{"word":"Pipoca"}'::jsonb),
+  ('ms:31', 'mega-senha', 'Comidas', '{"word":"Sorvete"}'::jsonb),
+  ('ms:32', 'mega-senha', 'Comidas', '{"word":"Feijão"}'::jsonb),
+  ('ms:33', 'mega-senha', 'Comidas', '{"word":"Banana"}'::jsonb),
+  ('ms:34', 'mega-senha', 'Comidas', '{"word":"Chocolate"}'::jsonb),
+  ('ms:35', 'mega-senha', 'Comidas', '{"word":"Pizza"}'::jsonb),
+  ('ms:36', 'mega-senha', 'Comidas', '{"word":"Macarrão"}'::jsonb),
+  ('ms:37', 'mega-senha', 'Comidas', '{"word":"Queijo"}'::jsonb),
+  ('ms:38', 'mega-senha', 'Comidas', '{"word":"Ovo"}'::jsonb),
+  ('ms:39', 'mega-senha', 'Comidas', '{"word":"Bolo"}'::jsonb),
+  ('ms:40', 'mega-senha', 'Comidas', '{"word":"Pastel"}'::jsonb),
+  ('ms:41', 'mega-senha', 'Comidas', '{"word":"Melancia"}'::jsonb),
+  ('ms:42', 'mega-senha', 'Comidas', '{"word":"Pão"}'::jsonb),
+  ('ms:43', 'mega-senha', 'Comidas', '{"word":"Mel"}'::jsonb),
+  ('ms:44', 'mega-senha', 'Comidas', '{"word":"Arroz"}'::jsonb),
+  ('ms:45', 'mega-senha', 'Lugares', '{"word":"Praia"}'::jsonb),
+  ('ms:46', 'mega-senha', 'Lugares', '{"word":"Escola"}'::jsonb),
+  ('ms:47', 'mega-senha', 'Lugares', '{"word":"Hospital"}'::jsonb),
+  ('ms:48', 'mega-senha', 'Lugares', '{"word":"Cinema"}'::jsonb),
+  ('ms:49', 'mega-senha', 'Lugares', '{"word":"Floresta"}'::jsonb),
+  ('ms:50', 'mega-senha', 'Lugares', '{"word":"Deserto"}'::jsonb),
+  ('ms:51', 'mega-senha', 'Lugares', '{"word":"Castelo"}'::jsonb),
+  ('ms:52', 'mega-senha', 'Lugares', '{"word":"Biblioteca"}'::jsonb),
+  ('ms:53', 'mega-senha', 'Lugares', '{"word":"Igreja"}'::jsonb),
+  ('ms:54', 'mega-senha', 'Lugares', '{"word":"Fazenda"}'::jsonb),
+  ('ms:55', 'mega-senha', 'Lugares', '{"word":"Aeroporto"}'::jsonb),
+  ('ms:56', 'mega-senha', 'Lugares', '{"word":"Museu"}'::jsonb),
+  ('ms:57', 'mega-senha', 'Lugares', '{"word":"Circo"}'::jsonb),
+  ('ms:58', 'mega-senha', 'Lugares', '{"word":"Prisão"}'::jsonb),
+  ('ms:59', 'mega-senha', 'Lugares', '{"word":"Ilha"}'::jsonb),
+  ('ms:60', 'mega-senha', 'Profissões', '{"word":"Médico"}'::jsonb),
+  ('ms:61', 'mega-senha', 'Profissões', '{"word":"Bombeiro"}'::jsonb),
+  ('ms:62', 'mega-senha', 'Profissões', '{"word":"Professor"}'::jsonb),
+  ('ms:63', 'mega-senha', 'Profissões', '{"word":"Pintor"}'::jsonb),
+  ('ms:64', 'mega-senha', 'Profissões', '{"word":"Padeiro"}'::jsonb),
+  ('ms:65', 'mega-senha', 'Profissões', '{"word":"Juiz"}'::jsonb),
+  ('ms:66', 'mega-senha', 'Profissões', '{"word":"Mágico"}'::jsonb),
+  ('ms:67', 'mega-senha', 'Profissões', '{"word":"Carteiro"}'::jsonb),
+  ('ms:68', 'mega-senha', 'Profissões', '{"word":"Pirata"}'::jsonb),
+  ('ms:69', 'mega-senha', 'Profissões', '{"word":"Astronauta"}'::jsonb),
+  ('ms:70', 'mega-senha', 'Profissões', '{"word":"Jardineiro"}'::jsonb),
+  ('ms:71', 'mega-senha', 'Profissões', '{"word":"Garçom"}'::jsonb),
+  ('ms:72', 'mega-senha', 'Profissões', '{"word":"Cantor"}'::jsonb),
+  ('ms:73', 'mega-senha', 'Profissões', '{"word":"Detetive"}'::jsonb),
+  ('ms:74', 'mega-senha', 'Profissões', '{"word":"Ladrão"}'::jsonb),
+  ('ms:75', 'mega-senha', 'Natureza', '{"word":"Chuva"}'::jsonb),
+  ('ms:76', 'mega-senha', 'Natureza', '{"word":"Vulcão"}'::jsonb),
+  ('ms:77', 'mega-senha', 'Natureza', '{"word":"Estrela"}'::jsonb),
+  ('ms:78', 'mega-senha', 'Natureza', '{"word":"Montanha"}'::jsonb),
+  ('ms:79', 'mega-senha', 'Natureza', '{"word":"Rio"}'::jsonb),
+  ('ms:80', 'mega-senha', 'Natureza', '{"word":"Neve"}'::jsonb),
+  ('ms:81', 'mega-senha', 'Natureza', '{"word":"Vento"}'::jsonb),
+  ('ms:82', 'mega-senha', 'Natureza', '{"word":"Areia"}'::jsonb),
+  ('ms:83', 'mega-senha', 'Natureza', '{"word":"Raio"}'::jsonb),
+  ('ms:84', 'mega-senha', 'Natureza', '{"word":"Sol"}'::jsonb),
+  ('ms:85', 'mega-senha', 'Natureza', '{"word":"Nuvem"}'::jsonb),
+  ('ms:86', 'mega-senha', 'Natureza', '{"word":"Pedra"}'::jsonb),
+  ('ms:87', 'mega-senha', 'Natureza', '{"word":"Árvore"}'::jsonb),
+  ('ms:88', 'mega-senha', 'Natureza', '{"word":"Flor"}'::jsonb),
+  ('ms:89', 'mega-senha', 'Natureza', '{"word":"Onda"}'::jsonb),
+  ('ms:90', 'mega-senha', 'Corpo Humano', '{"word":"Coração"}'::jsonb),
+  ('ms:91', 'mega-senha', 'Corpo Humano', '{"word":"Joelho"}'::jsonb),
+  ('ms:92', 'mega-senha', 'Corpo Humano', '{"word":"Cabelo"}'::jsonb),
+  ('ms:93', 'mega-senha', 'Corpo Humano', '{"word":"Dente"}'::jsonb),
+  ('ms:94', 'mega-senha', 'Corpo Humano', '{"word":"Nariz"}'::jsonb),
+  ('ms:95', 'mega-senha', 'Corpo Humano', '{"word":"Orelha"}'::jsonb),
+  ('ms:96', 'mega-senha', 'Corpo Humano', '{"word":"Unha"}'::jsonb),
+  ('ms:97', 'mega-senha', 'Corpo Humano', '{"word":"Barriga"}'::jsonb),
+  ('ms:98', 'mega-senha', 'Corpo Humano', '{"word":"Cotovelo"}'::jsonb),
+  ('ms:99', 'mega-senha', 'Corpo Humano', '{"word":"Olho"}'::jsonb),
+  ('ms:100', 'mega-senha', 'Esportes e Lazer', '{"word":"Futebol"}'::jsonb),
+  ('ms:101', 'mega-senha', 'Esportes e Lazer', '{"word":"Bicicleta"}'::jsonb),
+  ('ms:102', 'mega-senha', 'Esportes e Lazer', '{"word":"Piscina"}'::jsonb),
+  ('ms:103', 'mega-senha', 'Esportes e Lazer', '{"word":"Xadrez"}'::jsonb),
+  ('ms:104', 'mega-senha', 'Esportes e Lazer', '{"word":"Pipa"}'::jsonb),
+  ('ms:105', 'mega-senha', 'Esportes e Lazer', '{"word":"Skate"}'::jsonb),
+  ('ms:106', 'mega-senha', 'Esportes e Lazer', '{"word":"Baralho"}'::jsonb),
+  ('ms:107', 'mega-senha', 'Esportes e Lazer', '{"word":"Karaokê"}'::jsonb),
+  ('ms:108', 'mega-senha', 'Esportes e Lazer', '{"word":"Balanço"}'::jsonb),
+  ('ms:109', 'mega-senha', 'Esportes e Lazer', '{"word":"Videogame"}'::jsonb),
+  ('ms:110', 'mega-senha', 'Conceitos', '{"word":"Saudade"}'::jsonb),
+  ('ms:111', 'mega-senha', 'Conceitos', '{"word":"Sono"}'::jsonb),
+  ('ms:112', 'mega-senha', 'Conceitos', '{"word":"Medo"}'::jsonb),
+  ('ms:113', 'mega-senha', 'Conceitos', '{"word":"Segredo"}'::jsonb),
+  ('ms:114', 'mega-senha', 'Conceitos', '{"word":"Sorte"}'::jsonb),
+  ('ms:115', 'mega-senha', 'Conceitos', '{"word":"Fome"}'::jsonb),
+  ('ms:116', 'mega-senha', 'Conceitos', '{"word":"Preguiça"}'::jsonb),
+  ('ms:117', 'mega-senha', 'Conceitos', '{"word":"Ciúme"}'::jsonb),
+  ('ms:118', 'mega-senha', 'Conceitos', '{"word":"Sonho"}'::jsonb),
+  ('ms:119', 'mega-senha', 'Conceitos', '{"word":"Festa"}'::jsonb),
+  ('ms:120', 'mega-senha', 'Conceitos', '{"word":"Viagem"}'::jsonb),
+  ('ms:121', 'mega-senha', 'Conceitos', '{"word":"Silêncio"}'::jsonb),
+  ('ms:122', 'mega-senha', 'Conceitos', '{"word":"Pressa"}'::jsonb),
+  ('ms:123', 'mega-senha', 'Conceitos', '{"word":"Amizade"}'::jsonb),
+  ('ms:124', 'mega-senha', 'Conceitos', '{"word":"Mentira"}'::jsonb),
+  ('mus:s01', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s01","title":"Evidências","artist":"Chitãozinho & Xororó","era":"Anos 1990","genre":"Sertanejo","hint":"Hino oficial de qualquer karaokê brasileiro sobre negar um amor que todo mundo já percebeu","curiosity":"Foi composta por José Augusto e Paulo Sérgio Valle e virou quase um “hino nacional alternativo” em festas","theme":"Alguém jura que não ama mais, mas cada atitude prova o contrário"}'::jsonb),
+  ('mus:s02', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s02","title":"Ai Se Eu Te Pego","artist":"Michel Teló","era":"Anos 2010","genre":"Sertanejo","hint":"Um flerte na balada que virou fenômeno mundial com coreografia de jogadores de futebol","curiosity":"Chegou ao topo das paradas em vários países da Europa e foi dançada por craques em comemorações de gol","theme":"Ele vê alguém dançando na festa e se declara de forma bem direta"}'::jsonb),
+  ('mus:s03', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s03","title":"Camaro Amarelo","artist":"Munhoz & Mariano","era":"Anos 2010","genre":"Sertanejo","hint":"Um rapaz que antes era ignorado fica rico e de repente vira o mais disputado da cidade","curiosity":"O refrão cita um carro esportivo importado de cor chamativa","theme":"Antes ninguém o notava; depois do dinheiro, todos querem dar uma volta com ele"}'::jsonb),
+  ('mus:s04', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s04","title":"Infiel","artist":"Marília Mendonça","era":"Anos 2010","genre":"Sertanejo","hint":"Uma mulher descobre a traição e decide entregar o parceiro de presente para a outra","curiosity":"Lançou a artista conhecida como a “Rainha da Sofrência” ao estrelato nacional","theme":"Ela avisa à amante que agora o problema é dela"}'::jsonb),
+  ('mus:s05', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s05","title":"Fio de Cabelo","artist":"Chitãozinho & Xororó","era":"Anos 1980","genre":"Sertanejo","hint":"Um pequeno vestígio encontrado numa roupa reacende a dor de um amor que acabou","curiosity":"Clássico que ajudou a popularizar o sertanejo romântico nas rádios do país","theme":"Ao achar algo deixado no paletó, ele lembra de quem foi embora"}'::jsonb),
+  ('mus:s06', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s06","title":"Cuida Bem Dela","artist":"Henrique & Juliano","era":"Anos 2010","genre":"Sertanejo","hint":"Um ex manda um recado para o novo namorado da pessoa amada","curiosity":"Faz parte do repertório que consolidou a dupla de irmãos de Palmeirópolis (TO)","theme":"Ele aceita a derrota, mas pede que o outro trate bem quem ele ainda ama"}'::jsonb),
+  ('mus:s07', 'adivinhe-a-musica', 'Sertanejo', '{"id":"s07","title":"Sinônimos","artist":"Chitãozinho & Xororó e Zé Ramalho","era":"Anos 2000","genre":"Sertanejo","hint":"Uma reflexão poética sobre palavras diferentes que significam a mesma coisa no amor","curiosity":"Encontro de uma dupla sertaneja com um ícone do nordeste brasileiro","theme":"Amor, loucura e paixão comparados como se fossem a mesma coisa"}'::jsonb),
+  ('mus:r01', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r01","title":"Tempo Perdido","artist":"Legião Urbana","era":"Anos 1980","genre":"Rock Nacional","hint":"Uma geração percebe que é jovem e que o relógio não para","curiosity":"Está no álbum “Dois”, um dos discos mais vendidos do rock brasileiro","theme":"Todos os dias quando acordamos não temos mais o que já passou"}'::jsonb),
+  ('mus:r02', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r02","title":"Pais e Filhos","artist":"Legião Urbana","era":"Anos 1980","genre":"Rock Nacional","hint":"Uma estátua, uma janela e um conselho sobre amar as pessoas enquanto elas estão aqui","curiosity":"Faz parte do álbum “As Quatro Estações” e é uma das mais tocadas da banda de Brasília","theme":"A relação entre gerações dentro de casa e a urgência de amar"}'::jsonb),
+  ('mus:r03', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r03","title":"Exagerado","artist":"Cazuza","era":"Anos 1980","genre":"Rock Nacional","hint":"Um apaixonado que admite fazer tudo de forma intensa e dramática demais","curiosity":"Primeira grande música da carreira solo do cantor após sair do Barão Vermelho","theme":"Ele promete amor eterno, se jogar aos pés e fazer cenas por paixão"}'::jsonb),
+  ('mus:r04', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r04","title":"Infinita Highway","artist":"Engenheiros do Hawaii","era":"Anos 1980","genre":"Rock Nacional","hint":"Uma longa viagem de estrada sem destino definido, cheia de reflexões","curiosity":"Banda gaúcha liderada por Humberto Gessinger; a faixa tem mais de seis minutos","theme":"Pé na estrada, vento no rosto e conversa sobre a vida a dois"}'::jsonb),
+  ('mus:r05', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r05","title":"Mulher de Fases","artist":"Raimundos","era":"Anos 1990","genre":"Rock Nacional","hint":"Uma parceira cujo humor muda tanto que parece seguir o céu noturno","curiosity":"Mistura de rock pesado com forró, marca registrada da banda de Brasília","theme":"Ele não sabe o que esperar de quem muda de jeito toda semana"}'::jsonb),
+  ('mus:r06', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r06","title":"Anna Júlia","artist":"Los Hermanos","era":"Anos 1990","genre":"Rock Nacional","hint":"Um amor platônico com nome e sobrenome que tocou em todas as rádios","curiosity":"Ganhou uma versão em inglês de Jim Capaldi com George Harrison na guitarra","theme":"Ele não consegue tirar da cabeça uma garota específica"}'::jsonb),
+  ('mus:r07', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r07","title":"Lanterna dos Afogados","artist":"Os Paralamas do Sucesso","era":"Anos 1980","genre":"Rock Nacional","hint":"Uma luz que guia quem está perdido no meio da escuridão do mar","curiosity":"Composta por Herbert Vianna, foi regravada por Maria Gadú anos depois","theme":"Quando tudo está escuro, alguém aparece como farol"}'::jsonb),
+  ('mus:r08', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r08","title":"Pro Dia Nascer Feliz","artist":"Barão Vermelho","era":"Anos 1980","genre":"Rock Nacional","hint":"Uma noite de festa e amor que só termina quando o sol aparece","curiosity":"Foi um dos hinos da geração do Rock in Rio de 1985","theme":"Viver intensamente a madrugada esperando a manhã chegar"}'::jsonb),
+  ('mus:r09', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r09","title":"Proibida pra Mim","artist":"Charlie Brown Jr.","era":"Anos 1990","genre":"Rock Nacional","hint":"Um skatista de Santos apaixonado por alguém que não deveria","curiosity":"Ganhou uma versão acústica famosa gravada também por Zeca Baleiro","theme":"Ele sabe que não pode ficar com ela, mas não consegue evitar"}'::jsonb),
+  ('mus:r10', 'adivinhe-a-musica', 'Rock Nacional', '{"id":"r10","title":"Pelados em Santos","artist":"Mamonas Assassinas","era":"Anos 1990","genre":"Rock Nacional","hint":"Um galanteio desastrado envolvendo um carro popular e o litoral paulista","curiosity":"A banda de Guarulhos vendeu milhões de discos em menos de um ano de carreira","theme":"Um rapaz exibido tenta conquistar uma moça com sua Brasília amarela"}'::jsonb),
+  ('mus:i01', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i01","title":"Bohemian Rhapsody","artist":"Queen","era":"Anos 1970","genre":"Rock Internacional","hint":"Uma ópera-rock de seis minutos com confissão, julgamento e headbanging","curiosity":"Não tem refrão tradicional e mistura balada, ópera e hard rock","theme":"Um jovem confessa à mãe que cometeu um crime e encara seu destino"}'::jsonb),
+  ('mus:i02', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i02","title":"Smells Like Teen Spirit","artist":"Nirvana","era":"Anos 1990","genre":"Rock Internacional","hint":"O hino grunge que levou Seattle ao topo das paradas","curiosity":"O título veio de uma marca de desodorante feminino","theme":"Apatia e ironia de uma juventude entediada"}'::jsonb),
+  ('mus:i03', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i03","title":"Hotel California","artist":"Eagles","era":"Anos 1970","genre":"Rock Internacional","hint":"Um viajante cansado se hospeda em um lugar luxuoso de onde nunca consegue sair","curiosity":"Famosa pelo longo duelo de guitarras no final","theme":"Um paraíso sedutor que se revela uma armadilha"}'::jsonb),
+  ('mus:i04', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i04","title":"Sweet Child O'' Mine","artist":"Guns N'' Roses","era":"Anos 1980","genre":"Rock Internacional","hint":"Um riff de guitarra que começou como exercício de aquecimento","curiosity":"Slash criou a introdução brincando com o violão durante um ensaio","theme":"Uma declaração aos olhos e ao sorriso de alguém especial"}'::jsonb),
+  ('mus:i05', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i05","title":"Livin'' on a Prayer","artist":"Bon Jovi","era":"Anos 1980","genre":"Rock Internacional","hint":"Um casal da classe trabalhadora se segura um no outro em tempos difíceis","curiosity":"Os personagens Tommy e Gina aparecem também em outra música da banda","theme":"Mesmo sem dinheiro, eles estão no meio do caminho e não vão desistir"}'::jsonb),
+  ('mus:i06', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i06","title":"Wonderwall","artist":"Oasis","era":"Anos 1990","genre":"Rock Internacional","hint":"A música de violão mais tocada em rodinha de amigos do britpop","curiosity":"Os irmãos Gallagher eram famosos tanto pelas músicas quanto pelas brigas","theme":"Alguém pode ser a pessoa que vai salvar o outro"}'::jsonb),
+  ('mus:i07', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i07","title":"Stairway to Heaven","artist":"Led Zeppelin","era":"Anos 1970","genre":"Rock Internacional","hint":"Uma dama acredita que tudo que brilha é ouro e quer comprar a subida ao paraíso","curiosity":"Começa calma com violão e flauta e termina em um solo épico","theme":"Ganância, misticismo e escolhas espirituais"}'::jsonb),
+  ('mus:i08', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i08","title":"Back in Black","artist":"AC/DC","era":"Anos 1980","genre":"Rock Internacional","hint":"Uma homenagem de luto a um vocalista que partiu, mas cheia de energia","curiosity":"O álbum de mesmo nome é um dos mais vendidos da história","theme":"A banda volta à ativa, de preto, mais forte do que nunca"}'::jsonb),
+  ('mus:i09', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i09","title":"Numb","artist":"Linkin Park","era":"Anos 2000","genre":"Rock Internacional","hint":"Um jovem cansado de tentar corresponder às expectativas de alguém","curiosity":"Ganhou uma versão mashup famosa com o rapper Jay-Z","theme":"Sentir-se anestesiado por tanta pressão para ser perfeito"}'::jsonb),
+  ('mus:i10', 'adivinhe-a-musica', 'Rock Internacional', '{"id":"i10","title":"Mr. Brightside","artist":"The Killers","era":"Anos 2000","genre":"Rock Internacional","hint":"Ciúme em velocidade máxima ao imaginar a pessoa amada com outro","curiosity":"Até hoje aparece com frequência nas paradas britânicas, anos após o lançamento","theme":"Ele tenta olhar o lado bom enquanto o ciúme o consome"}'::jsonb),
+  ('mus:p01', 'adivinhe-a-musica', 'Pop', '{"id":"p01","title":"Billie Jean","artist":"Michael Jackson","era":"Anos 1980","genre":"Pop","hint":"Uma acusação de paternidade embalada pela linha de baixo mais famosa do pop","curiosity":"Foi na apresentação dessa música na TV que o moonwalk ficou famoso","theme":"Ele insiste que a criança não é dele"}'::jsonb),
+  ('mus:p02', 'adivinhe-a-musica', 'Pop', '{"id":"p02","title":"Like a Prayer","artist":"Madonna","era":"Anos 1980","genre":"Pop","hint":"Um coral gospel encontra a Rainha do Pop num clipe polêmico","curiosity":"O videoclipe gerou protestos e o cancelamento de um contrato publicitário","theme":"Amor e devoção descritos com linguagem religiosa"}'::jsonb),
+  ('mus:p03', 'adivinhe-a-musica', 'Pop', '{"id":"p03","title":"Rolling in the Deep","artist":"Adele","era":"Anos 2010","genre":"Pop","hint":"Uma ex-namorada ferida promete que ele vai se arrepender de tudo","curiosity":"Faz parte do álbum “21”, um dos mais vendidos do século","theme":"Poderíamos ter tido tudo, mas você jogou fora"}'::jsonb),
+  ('mus:p04', 'adivinhe-a-musica', 'Pop', '{"id":"p04","title":"Shape of You","artist":"Ed Sheeran","era":"Anos 2010","genre":"Pop","hint":"Um romance que começa no bar e ganha ritmo de marimba","curiosity":"Foi uma das músicas mais ouvidas na história do Spotify","theme":"Atração física que vira encontro, jantar e paixão"}'::jsonb),
+  ('mus:p05', 'adivinhe-a-musica', 'Pop', '{"id":"p05","title":"Bad Romance","artist":"Lady Gaga","era":"Anos 2000","genre":"Pop","hint":"Um amor tóxico assumido de propósito, com coreografia de monstrinho","curiosity":"O clipe se passa em uma casa de banho futurista e venceu vários prêmios","theme":"Ela quer o amor com todo o drama, ciúme e vingança"}'::jsonb),
+  ('mus:p06', 'adivinhe-a-musica', 'Pop', '{"id":"p06","title":"Envolver","artist":"Anitta","era":"Anos 2020","genre":"Pop","hint":"Uma coreografia de chão que viralizou no mundo inteiro","curiosity":"Fez uma cantora brasileira chegar ao topo do ranking global do Spotify","theme":"Uma relação sem compromisso, só de momento"}'::jsonb),
+  ('mus:p07', 'adivinhe-a-musica', 'Pop', '{"id":"p07","title":"Show das Poderosas","artist":"Anitta","era":"Anos 2010","genre":"Pop","hint":"Uma convocação para as rivais saírem da frente porque a dona da pista chegou","curiosity":"Lançou a carreira da cantora carioca para todo o Brasil","theme":"Ela prepara a pista e manda as invejosas se afastarem"}'::jsonb),
+  ('mus:p08', 'adivinhe-a-musica', 'Pop', '{"id":"p08","title":"Blinding Lights","artist":"The Weeknd","era":"Anos 2010","genre":"Pop","hint":"Synthwave oitentista sobre dirigir pela cidade à noite com saudade","curiosity":"Ficou um ano inteiro no top 10 da principal parada americana","theme":"As luzes da cidade cegam, e só uma pessoa pode acalmá-lo"}'::jsonb),
+  ('mus:p09', 'adivinhe-a-musica', 'Pop', '{"id":"p09","title":"Despacito","artist":"Luis Fonsi & Daddy Yankee","era":"Anos 2010","genre":"Pop","hint":"Reggaeton porto-riquenho que pede para ir bem devagarinho","curiosity":"Foi o primeiro vídeo a ultrapassar 5 bilhões de visualizações no YouTube","theme":"Uma sedução lenta e romântica em espanhol"}'::jsonb),
+  ('mus:h01', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h01","title":"Diário de um Detento","artist":"Racionais MC''s","era":"Anos 1990","genre":"Rap/Trap","hint":"Relato em primeira pessoa da vida dentro de um presídio de São Paulo","curiosity":"Baseada em escritos de um ex-detento do Carandiru; o clipe ganhou prêmio na MTV","theme":"O cotidiano e o massacre na maior prisão do país"}'::jsonb),
+  ('mus:h02', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h02","title":"Lose Yourself","artist":"Eminem","era":"Anos 2000","genre":"Rap/Trap","hint":"Uma única chance, um único momento, mãos suadas antes da batalha de rima","curiosity":"Foi o primeiro rap a vencer o Oscar de Melhor Canção Original","theme":"Agarrar a oportunidade da vida sem deixar escapar"}'::jsonb),
+  ('mus:h03', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h03","title":"In Da Club","artist":"50 Cent","era":"Anos 2000","genre":"Rap/Trap","hint":"Festa de aniversário na balada com garrafa de espumante","curiosity":"Produzida por Dr. Dre e lançada pela gravadora de Eminem","theme":"Comemorar o aniversário como se não houvesse amanhã"}'::jsonb),
+  ('mus:h04', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h04","title":"HUMBLE.","artist":"Kendrick Lamar","era":"Anos 2010","genre":"Rap/Trap","hint":"Um rapper de Compton manda todo mundo sentar e ficar na sua","curiosity":"Faz parte do álbum “DAMN.”, vencedor do Prêmio Pulitzer de Música","theme":"Crítica à ostentação e chamado à modéstia"}'::jsonb),
+  ('mus:h05', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h05","title":"Gangsta''s Paradise","artist":"Coolio","era":"Anos 1990","genre":"Rap/Trap","hint":"Trilha de um filme de professora em escola difícil, com coral sombrio","curiosity":"Usa como base uma música de Stevie Wonder dos anos 70","theme":"Ao caminhar pelo vale da sombra, ele reflete sobre a vida no crime"}'::jsonb),
+  ('mus:h06', 'adivinhe-a-musica', 'Rap/Trap', '{"id":"h06","title":"SICKO MODE","artist":"Travis Scott","era":"Anos 2010","genre":"Rap/Trap","hint":"Uma faixa que muda de batida três vezes, com participação de Drake","curiosity":"Parte do álbum “Astroworld”, nome inspirado em um parque de diversões de Houston","theme":"Ostentação e estrada em várias “fases” dentro da mesma música"}'::jsonb),
+  ('mus:c01', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c01","title":"Garota de Ipanema","artist":"Tom Jobim & Vinicius de Moraes","era":"Anos 1960","genre":"Clássicos Brasileiros","hint":"Uma moça passa a caminho do mar e encanta os compositores no bar","curiosity":"Uma das músicas mais gravadas do mundo; símbolo da Bossa Nova","theme":"A beleza de quem passa balançando a caminho da praia"}'::jsonb),
+  ('mus:c02', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c02","title":"Aquarela","artist":"Toquinho","era":"Anos 1980","genre":"Clássicos Brasileiros","hint":"Um simples desenho no papel vira castelo, gaivota e viagem ao redor do mundo","curiosity":"Ficou famosa em uma propaganda de lápis de cor","theme":"A imaginação de uma criança desenhando e o tempo que passa"}'::jsonb),
+  ('mus:c03', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c03","title":"País Tropical","artist":"Jorge Ben Jor","era":"Anos 1960","genre":"Clássicos Brasileiros","hint":"Um elogio ao Brasil abençoado por Deus e bonito por natureza","curiosity":"Também ficou famosa na voz de Wilson Simonal","theme":"Orgulho de morar num lugar de calor, futebol e violão"}'::jsonb),
+  ('mus:c04', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c04","title":"Mas Que Nada","artist":"Jorge Ben Jor","era":"Anos 1960","genre":"Clássicos Brasileiros","hint":"Samba que conquistou o mundo com um refrão de “ô-ariá-raiô”","curiosity":"Sergio Mendes & Brasil 66 e depois o Black Eyed Peas regravaram","theme":"Um convite para sair da frente e deixar o samba passar"}'::jsonb),
+  ('mus:c05', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c05","title":"Construção","artist":"Chico Buarque","era":"Anos 1970","genre":"Clássicos Brasileiros","hint":"Um operário vive seu último dia em versos que sempre terminam com proparoxítonas","curiosity":"As palavras finais dos versos trocam de lugar a cada estrofe","theme":"A vida e a morte anônima de um trabalhador"}'::jsonb),
+  ('mus:c06', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c06","title":"Andar com Fé","artist":"Gilberto Gil","era":"Anos 1980","genre":"Clássicos Brasileiros","hint":"Um conselho de que a crença não costuma falhar","curiosity":"Faz parte do álbum “Um Banda Um” do artista baiano","theme":"Seguir em frente acreditando, mesmo sem saber em quê"}'::jsonb),
+  ('mus:c07', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c07","title":"Como Nossos Pais","artist":"Elis Regina","era":"Anos 1970","genre":"Clássicos Brasileiros","hint":"A juventude rebelde percebe que acabou repetindo as gerações anteriores","curiosity":"Composta por Belchior e eternizada na voz da “Pimentinha”","theme":"Apesar de tudo, ainda somos os mesmos e vivemos igual"}'::jsonb),
+  ('mus:c08', 'adivinhe-a-musica', 'Clássicos Brasileiros', '{"id":"c08","title":"Ovelha Negra","artist":"Rita Lee","era":"Anos 1970","genre":"Clássicos Brasileiros","hint":"A rebelde da família é convidada pelo pai a seguir seu próprio caminho","curiosity":"Gravada com a banda Tutti Frutti, virou hino da rainha do rock brasileiro","theme":"Ser diferente da família e assumir isso"}'::jsonb),
+  ('mus:g01', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g01","title":"Cha-La Head-Cha-La","artist":"Hironobu Kageyama","era":"Anos 1980","genre":"Games & Animes","hint":"Abertura de um anime de guerreiros que gritam muito e transformam o cabelo","curiosity":"Abertura de Dragon Ball Z, com versão brasileira cantada por Rodrigo Rossi","theme":"Mesmo com o mundo de cabeça para baixo, o coração continua animado"}'::jsonb),
+  ('mus:g02', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g02","title":"Pegasus Fantasy","artist":"Make-Up","era":"Anos 1980","genre":"Games & Animes","hint":"Abertura de cavaleiros com armaduras inspiradas em constelações","curiosity":"Tema de Os Cavaleiros do Zodíaco, febre na TV brasileira dos anos 90","theme":"Jovens guerreiros despertam o cosmo para proteger uma deusa"}'::jsonb),
+  ('mus:g03', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g03","title":"A Cruel Angel''s Thesis","artist":"Yoko Takahashi","era":"Anos 1990","genre":"Games & Animes","hint":"Abertura de um anime de robôs gigantes cheio de crise existencial","curiosity":"Tema de Neon Genesis Evangelion; uma das músicas de karaokê mais cantadas do Japão","theme":"Um garoto destinado a se tornar lenda","aliases":["Zankoku na Tenshi no Thesis","Zankoku na Tenshi no Teze"]}'::jsonb),
+  ('mus:g04', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g04","title":"Pokémon Theme","artist":"Jason Paige","era":"Anos 1990","genre":"Games & Animes","hint":"Abertura de um treinador que quer ser o melhor que já houve","curiosity":"A versão brasileira ficou marcada pela frase sobre capturar todos","theme":"Viajar pelo mundo para treinar e capturar criaturas","aliases":["Tema de Pokémon","Abertura de Pokémon","Gotta Catch Em All"]}'::jsonb),
+  ('mus:g05', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g05","title":"Still Alive","artist":"Jonathan Coulton","era":"Anos 2000","genre":"Games & Animes","hint":"Créditos finais de um jogo de quebra-cabeças com portais e um bolo que é mentira","curiosity":"Cantada pela inteligência artificial GLaDOS no fim de Portal","theme":"Uma IA passivo-agressiva diz que está tudo ótimo após ser derrotada"}'::jsonb),
+  ('mus:g06', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g06","title":"Blue Bird","artist":"Ikimono-gakari","era":"Anos 2000","genre":"Games & Animes","hint":"Abertura de um ninja loiro em sua fase mais adulta","curiosity":"Tema de Naruto Shippuden, um dos mais lembrados pelos fãs","theme":"Bater as asas e voar em direção ao céu azul"}'::jsonb),
+  ('mus:g07', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g07","title":"Unravel","artist":"TK from Ling tosite sigure","era":"Anos 2010","genre":"Games & Animes","hint":"Abertura de um anime sobre um garoto meio humano meio devorador de carne","curiosity":"Tema de Tokyo Ghoul, famosa pelos agudos desesperados","theme":"Alguém pergunta quem é de verdade enquanto se despedaça"}'::jsonb),
+  ('mus:g08', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g08","title":"Gurenge","artist":"LiSA","era":"Anos 2010","genre":"Games & Animes","hint":"Abertura de um caçador de demônios com brincos de hanafuda","curiosity":"Tema de Demon Slayer (Kimetsu no Yaiba)","theme":"A força para continuar mesmo ferido, como uma flor vermelha"}'::jsonb),
+  ('mus:g09', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g09","title":"Guren no Yumiya","artist":"Linked Horizon","era":"Anos 2010","genre":"Games & Animes","hint":"Abertura épica sobre a humanidade cercada por muralhas e gigantes","curiosity":"Tema de Attack on Titan, com coro marcial em alemão","theme":"Caçadores que transformam medo em fúria contra os inimigos","aliases":["Arco e Flecha Carmesim"]}'::jsonb),
+  ('mus:g10', 'adivinhe-a-musica', 'Games & Animes', '{"id":"g10","title":"Megalovania","artist":"Toby Fox","era":"Anos 2010","genre":"Games & Animes","hint":"Trilha de uma luta contra um esqueleto preguiçoso que adora trocadilhos","curiosity":"Tema da batalha contra Sans em Undertale","theme":"Faixa instrumental frenética para a luta mais difícil do jogo"}'::jsonb),
+  ('cat:cat01', 'categorias', NULL, '{"text":"Marcas de carro"}'::jsonb),
+  ('cat:cat02', 'categorias', NULL, '{"text":"Personagens de anime"}'::jsonb),
+  ('cat:cat03', 'categorias', NULL, '{"text":"Coisas encontradas na geladeira"}'::jsonb),
+  ('cat:cat04', 'categorias', NULL, '{"text":"Países da América ou Europa"}'::jsonb),
+  ('cat:cat05', 'categorias', NULL, '{"text":"Frutas"}'::jsonb),
+  ('cat:cat06', 'categorias', NULL, '{"text":"Times de futebol"}'::jsonb),
+  ('cat:cat07', 'categorias', NULL, '{"text":"Profissões"}'::jsonb),
+  ('cat:cat08', 'categorias', NULL, '{"text":"Animais que vivem na água"}'::jsonb),
+  ('cat:cat09', 'categorias', NULL, '{"text":"Partes do corpo humano"}'::jsonb),
+  ('cat:cat10', 'categorias', NULL, '{"text":"Cantores ou bandas brasileiras"}'::jsonb),
+  ('cat:cat11', 'categorias', NULL, '{"text":"Objetos de cozinha"}'::jsonb),
+  ('cat:cat12', 'categorias', NULL, '{"text":"Capitais do mundo"}'::jsonb),
+  ('cat:cat13', 'categorias', NULL, '{"text":"Super-heróis e vilões"}'::jsonb),
+  ('cat:cat14', 'categorias', NULL, '{"text":"Marcas de roupa ou calçado"}'::jsonb),
+  ('cat:cat15', 'categorias', NULL, '{"text":"Comidas típicas brasileiras"}'::jsonb),
+  ('cat:cat16', 'categorias', NULL, '{"text":"Instrumentos musicais"}'::jsonb),
+  ('cat:cat17', 'categorias', NULL, '{"text":"Coisas que voam"}'::jsonb),
+  ('cat:cat18', 'categorias', NULL, '{"text":"Esportes"}'::jsonb),
+  ('cat:cat19', 'categorias', NULL, '{"text":"Cores"}'::jsonb),
+  ('cat:cat20', 'categorias', NULL, '{"text":"Personagens de novela"}'::jsonb),
+  ('cat:cat21', 'categorias', NULL, '{"text":"Filmes da Disney ou Pixar"}'::jsonb),
+  ('cat:cat22', 'categorias', NULL, '{"text":"Doces e sobremesas"}'::jsonb),
+  ('cat:cat23', 'categorias', NULL, '{"text":"Cidades brasileiras"}'::jsonb),
+  ('cat:cat24', 'categorias', NULL, '{"text":"Jogos de videogame"}'::jsonb),
+  ('cat:cat25', 'categorias', NULL, '{"text":"Coisas que têm rodas"}'::jsonb),
+  ('cat:cat26', 'categorias', NULL, '{"text":"Insetos"}'::jsonb),
+  ('cat:cat27', 'categorias', NULL, '{"text":"Peças de roupa"}'::jsonb),
+  ('cat:cat28', 'categorias', NULL, '{"text":"Bebidas"}'::jsonb),
+  ('cat:cat29', 'categorias', NULL, '{"text":"Flores e plantas"}'::jsonb),
+  ('cat:cat30', 'categorias', NULL, '{"text":"Marcas de tecnologia"}'::jsonb),
+  ('cat:cat31', 'categorias', NULL, '{"text":"Apps de celular"}'::jsonb),
+  ('cat:cat32', 'categorias', NULL, '{"text":"Coisas que se encontra na praia"}'::jsonb),
+  ('cat:cat33', 'categorias', NULL, '{"text":"Pokémon"}'::jsonb),
+  ('cat:cat34', 'categorias', NULL, '{"text":"Raças de cachorro"}'::jsonb),
+  ('cat:cat35', 'categorias', NULL, '{"text":"Legumes e verduras"}'::jsonb),
+  ('cat:cat36', 'categorias', NULL, '{"text":"Ferramentas"}'::jsonb),
+  ('cat:cat37', 'categorias', NULL, '{"text":"Matérias da escola"}'::jsonb),
+  ('cat:cat38', 'categorias', NULL, '{"text":"Desenhos animados"}'::jsonb),
+  ('cat:cat39', 'categorias', NULL, '{"text":"Sabores de sorvete"}'::jsonb),
+  ('cat:cat40', 'categorias', NULL, '{"text":"Coisas redondas"}'::jsonb),
+  ('cat:cat41', 'categorias', NULL, '{"text":"Personagens de contos de fadas"}'::jsonb),
+  ('cat:cat42', 'categorias', NULL, '{"text":"Estados brasileiros"}'::jsonb),
+  ('cat:cat43', 'categorias', NULL, '{"text":"Itens de banheiro"}'::jsonb),
+  ('cat:cat44', 'categorias', NULL, '{"text":"Nomes próprios femininos"}'::jsonb),
+  ('cat:cat45', 'categorias', NULL, '{"text":"Nomes próprios masculinos"}'::jsonb),
+  ('cat:cat46', 'categorias', NULL, '{"text":"Animais da fazenda"}'::jsonb),
+  ('cat:cat47', 'categorias', NULL, '{"text":"Coisas de festa de aniversário"}'::jsonb),
+  ('cat:cat48', 'categorias', NULL, '{"text":"Palavras em inglês usadas no Brasil"}'::jsonb)
+ON CONFLICT (id) DO UPDATE SET game = EXCLUDED.game, category = EXCLUDED.category, payload = EXCLUDED.payload;
