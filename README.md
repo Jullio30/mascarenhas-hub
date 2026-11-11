@@ -102,6 +102,16 @@ Pontuação em duas camadas: **placar da partida** e **placar geral da sala** (p
 
 ## 4. Deploy gratuito
 
+### Publicação atual: GitHub Pages
+🎮 **https://jullio30.github.io/mascarenhas-hub/**
+
+Para publicar uma nova versão (usa as chaves do `.env.local`):
+```bash
+npm run deploy   # build com base /mascarenhas-hub/ + push da pasta dist para a branch gh-pages
+```
+
+### Outras opções
+
 **Vercel**: importe o repositório, defina as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. `vercel.json` já reescreve rotas para o SPA.
 
 **Cloudflare Pages / Netlify**: build `npm run build`, saída `dist`. `public/_redirects` cobre o fallback do SPA.
