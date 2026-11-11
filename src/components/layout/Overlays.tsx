@@ -1,6 +1,10 @@
 import { useHubStore } from '../../store/useHubStore';
+import type { Player } from '../../types/game.types';
 import { getAvatar } from '../../data/avatars';
 import { cn } from '../ui';
+
+// Referência estável: evita loop infinito no useSyncExternalStore do Zustand
+const NO_PLAYERS: Player[] = [];
 
 export function Toasts() {
   const toasts = useHubStore((s) => s.toasts);
@@ -26,7 +30,7 @@ export function Toasts() {
 /** Reações flutuantes (emojis) enviadas pelos jogadores. */
 export function ReactionLayer() {
   const reactions = useHubStore((s) => s.reactions);
-  const players = useHubStore((s) => s.snapshot?.players ?? []);
+  const players = useHubStore((s) => s.snapshot?.players ?? NO_PLAYERS);
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 h-0">
       {reactions.map((r) => {

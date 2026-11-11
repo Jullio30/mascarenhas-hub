@@ -1,4 +1,5 @@
 import { Component, useState, type ReactNode } from 'react';
+import type { RoomLogEntry } from '../../types/game.types';
 import { BarChart3, FastForward, History, Pause, Play, Square } from 'lucide-react';
 import { useRoom } from '../../hooks/useRoom';
 import { useHubStore } from '../../store/useHubStore';
@@ -11,6 +12,9 @@ import { SyncTimer } from './SyncTimer';
 import { ConfirmButton } from './ConfirmButton';
 import { ReactionBar } from '../lobby/Lobby';
 import { ACCENT, GameIcon } from '../lobby/gameVisuals';
+
+// Referência estável: evita loop infinito no useSyncExternalStore do Zustand
+const NO_LOG: RoomLogEntry[] = [];
 
 class GameErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -53,7 +57,7 @@ export function MatchScoreboard() {
 }
 
 function RoundLog() {
-  const log = useHubStore((s) => s.snapshot?.log ?? []);
+  const log = useHubStore((s) => s.snapshot?.log ?? NO_LOG);
   return (
     <div className="grid max-h-56 gap-1 overflow-y-auto text-sm">
       {[...log].reverse().slice(0, 15).map((l) => (
