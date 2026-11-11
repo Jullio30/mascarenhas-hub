@@ -142,7 +142,7 @@ export default function MatchView() {
           <div className="min-w-0 flex-1">
             <div className="truncate font-display font-bold">{plugin.title}</div>
             <div className="text-xs text-white/50">
-              Rodada {Math.min(g.round, g.totalRounds)} de {g.totalRounds}
+              {g.roundLabel ?? `Rodada ${Math.min(g.round, g.totalRounds)} de ${g.totalRounds}`}
             </div>
           </div>
           {!hideTimer && <SyncTimer endsAt={snapshot.pause ? null : g.endsAt} className="text-2xl" />}

@@ -6,7 +6,15 @@ export type GameSlug =
   | 'impostor'
   | 'mega-senha'
   | 'adivinhe-a-musica'
-  | 'categorias';
+  | 'categorias'
+  | 'blefe'
+  | 'infiltrado'
+  | 'sabe-ou-perde'
+  | 'quem-e-mais-provavel'
+  | 'ordem-caotica';
+
+export type GameAccent = 'purple' | 'pink' | 'cyan' | 'red' | 'amber' | 'violet' | 'green' | 'blue' | 'orange';
+export type GameGroup = 'deducao' | 'trivia' | 'social';
 
 export type ConfigValue = number | string | boolean;
 export type GameConfig = Record<string, ConfigValue>;
@@ -94,6 +102,8 @@ export interface RoomSnapshot {
   log: RoomLogEntry[];
   version: number;
   updatedAt: number;
+  /** Anfitrião está preparando o conteúdo da partida (APIs externas). */
+  preparing?: boolean;
 }
 
 /** Campos mínimos que todo estado público de jogo expõe para o cabeçalho da partida. */
@@ -102,6 +112,10 @@ export interface BasePublicState {
   round: number;
   totalRounds: number;
   endsAt: number | null;
+  /** Rótulo opcional do cabeçalho (ex.: "Ciclo 2", "Turno 7"); substitui "Rodada X de Y". */
+  roundLabel?: string;
+  /** Vencedores definidos pela regra do jogo (ex.: chegou à Casa 30): ficam em 1º no pódio, à frente do placar. */
+  forcedWinnerIds?: string[];
 }
 
 export interface GameAction {
@@ -129,6 +143,8 @@ export interface EngineCtx {
   log: (text: string) => void;
   isUsed: (promptId: string) => boolean;
   markUsed: (promptId: string) => void;
+  /** Conteúdo pré-carregado pelo anfitrião (APIs externas) via plugin.prepare, só em createInitialState. */
+  external?: unknown;
 }
 
 /** Motor puro do jogo. Recebe rascunhos mutáveis e retorna `true` quando houve mudança. */
@@ -161,10 +177,18 @@ export interface MascarenhasGamePlugin<TState extends BasePublicState = BasePubl
   minPlayers: number;
   maxPlayers: number;
   recommendedPlayers: string;
-  accentColor: 'purple' | 'pink' | 'cyan' | 'red' | 'amber';
+  accentColor: GameAccent;
   iconName: string;
+  /** 'classic' = 5 jogos originais; 'new' = expansão. */
+  edition?: 'classic' | 'new';
+  groups?: GameGroup[];
   configSchema: GameConfigOption[];
   createInitialState: (players: Player[], config: GameConfig, ctx: EngineCtx) => GameDraft<TState, TSecret>;
   engine: GameEngine<TState, TSecret>;
+  /**
+   * Executado UMA vez no dispositivo do anfitrião antes da partida (ex.: buscar APIs públicas).
+   * Nunca deve rejeitar: em falha retorna conteúdo do catálogo local. O resultado chega em ctx.external.
+   */
+  prepare?: (config: GameConfig, players: Player[]) => Promise<unknown>;
   Component: React.FC<GameMatchProps<TState, TView>>;
 }

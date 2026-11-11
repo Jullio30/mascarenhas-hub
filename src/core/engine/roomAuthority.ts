@@ -154,7 +154,8 @@ export class RoomAuthority {
           return this.commit(false);
         }
         case 'ROOM/START':
-          return this.startGame();
+          void this.startGame();
+          return;
         case 'ROOM/KICK':
           return this.kick(String(action.playerId));
         case 'ROOM/TRANSFER_HOST': {
@@ -325,20 +326,45 @@ export class RoomAuthority {
     this.commit();
   }
 
-  private startGame() {
-    if (this.snap.status !== 'LOBBY') return;
+  private starting = false;
+
+  private async startGame() {
+    if (this.snap.status !== 'LOBBY' || this.starting) return;
     const plugin = getGame(this.snap.gameSlug);
-    const participants = this.snap.players.filter((p) => this.isOnline(p.id) || Object.keys(this.presence).length === 0);
-    if (participants.length < plugin.minPlayers) return;
+    const eligible = () => this.snap.players.filter((p) => this.isOnline(p.id) || Object.keys(this.presence).length === 0);
+    if (eligible().length < plugin.minPlayers) return;
+    const config = { ...defaultConfigFor(plugin.slug), ...(this.snap.configs[plugin.slug] ?? {}) };
+
+    let external: unknown;
+    if (plugin.prepare) {
+      // Conteúdo externo buscado UMA vez aqui (anfitrião); os demais recebem o desafio já pronto.
+      this.starting = true;
+      this.snap.preparing = true;
+      this.commit(false);
+      try {
+        external = await Promise.race([
+          plugin.prepare(config, eligible()),
+          new Promise((resolve) => setTimeout(() => resolve(undefined), 6000)),
+        ]);
+      } catch {
+        external = undefined;
+      }
+      this.starting = false;
+      this.snap.preparing = false;
+      if (this.snap.status !== 'LOBBY' || this.snap.gameSlug !== plugin.slug) return this.commit(false);
+    }
+
+    const participants = eligible();
+    if (participants.length < plugin.minPlayers) return this.commit(false);
     // jogadores desconectados não entram na partida
     this.snap.players.forEach((p) => {
       p.matchScore = 0;
       p.stats = emptyStats();
     });
-    const config = { ...defaultConfigFor(plugin.slug), ...(this.snap.configs[plugin.slug] ?? {}) };
     const logs: string[] = [];
     const players = structuredClone(participants);
     const ctx = this.makeCtx(players, config, logs);
+    ctx.external = external;
     const draft = plugin.createInitialState(players, config, ctx);
     this.snap.game = draft.pub;
     this.secret = draft.sec;
@@ -363,16 +389,18 @@ export class RoomAuthority {
   private finishMatch() {
     const players = this.snap.players.filter((p) => !this.snap.kicked.includes(p.id));
     const avg = (p: Player) => (p.stats.respCount ? p.stats.respTotal / p.stats.respCount : Number.POSITIVE_INFINITY);
+    const forced = this.snap.game?.forcedWinnerIds ?? [];
+    const won = (p: Player) => (forced.includes(p.id) ? 1 : 0);
     const sorted = [...players].sort(
-      (a, b) => b.matchScore - a.matchScore || b.stats.perfect - a.stats.perfect || avg(a) - avg(b),
+      (a, b) => won(b) - won(a) || b.matchScore - a.matchScore || b.stats.perfect - a.stats.perfect || avg(a) - avg(b),
     );
-    const same = (a: Player, b: Player) => a.matchScore === b.matchScore && a.stats.perfect === b.stats.perfect && avg(a) === avg(b);
+    const same = (a: Player, b: Player) => won(a) === won(b) && a.matchScore === b.matchScore && a.stats.perfect === b.stats.perfect && avg(a) === avg(b);
     let rank = 0;
     const entries = sorted.map((p, i) => {
       if (i === 0 || !same(sorted[i - 1], p)) rank = i + 1;
       return { playerId: p.id, rank, score: p.matchScore, crown: false };
     });
-    if (sorted.length && sorted[0].matchScore > 0) {
+    if (sorted.length && (sorted[0].matchScore > 0 || won(sorted[0]))) {
       entries.forEach((e) => {
         if (e.rank === 1) {
           e.crown = true;

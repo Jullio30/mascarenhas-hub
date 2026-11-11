@@ -15,8 +15,10 @@ export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret> = 
   minPlayers: 2,
   maxPlayers: 16,
   recommendedPlayers: '3 a 10',
-  accentColor: 'cyan',
+  accentColor: 'amber',
   iconName: 'Timer',
+  edition: 'classic',
+  groups: ['social'],
   configSchema: [
     { key: 'turnsPerPlayer', label: 'Turnos por jogador', type: 'number', defaultValue: 2, min: 1, max: 6 },
     {

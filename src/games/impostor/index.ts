@@ -17,7 +17,9 @@ export const impostorPlugin: MascarenhasGamePlugin<ImpState, ImpSecret, ImpView>
   maxPlayers: 16,
   recommendedPlayers: '4 a 10',
   accentColor: 'red',
-  iconName: 'Drama',
+  iconName: 'EyeOff',
+  edition: 'classic',
+  groups: ['deducao'],
   configSchema: [
     { key: 'rounds', label: 'Rodadas', type: 'number', defaultValue: 5, min: 1, max: 15 },
     {

@@ -15,8 +15,10 @@ export const categoriasPlugin: MascarenhasGamePlugin<CatState, Record<string, ne
   minPlayers: 2,
   maxPlayers: 16,
   recommendedPlayers: '3 a 10',
-  accentColor: 'amber',
-  iconName: 'Bomb',
+  accentColor: 'purple',
+  iconName: 'Flame',
+  edition: 'classic',
+  groups: ['social'],
   configSchema: [
     { key: 'rounds', label: 'Rodadas (categorias)', type: 'number', defaultValue: 3, min: 1, max: 10 },
     { key: 'turnSeconds', label: 'Segundos por turno', type: 'number', defaultValue: 10, min: 5, max: 20 },

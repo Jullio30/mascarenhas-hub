@@ -18,6 +18,8 @@ export const adivinheAMusicaPlugin: MascarenhasGamePlugin<MusicState, MusicSecre
   recommendedPlayers: '2 a 12',
   accentColor: 'pink',
   iconName: 'Music',
+  edition: 'classic',
+  groups: ['trivia'],
   configSchema: [
     { key: 'rounds', label: 'Músicas na partida', type: 'number', defaultValue: 8, min: 3, max: 20 },
     {

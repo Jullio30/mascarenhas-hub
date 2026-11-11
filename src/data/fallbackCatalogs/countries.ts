@@ -1,0 +1,27 @@
+/** Snapshot local IBGE Países + World Bank SP.POP.TOTL (gerado a partir das APIs oficiais) — contingência offline. */
+import type { CountryInfo } from '../../services/externalApis/countriesApiService';
+
+export const FALLBACK_COUNTRIES: CountryInfo[] = [{"iso2":"AR","iso3":"ARG","name":"Argentina","capital":"Buenos Aires","region":"América","currency":"Peso argentino","areaKm2":2780400,"population":45851378,"populationYear":"2025"},
+  {"iso2":"AU","iso3":"AUS","name":"Austrália","capital":"Camberra","region":"Oceania","currency":"Dólar australiano","areaKm2":7741220,"population":27614411,"populationYear":"2025"},
+  {"iso2":"BR","iso3":"BRA","name":"Brasil","capital":"Brasília","region":"América","currency":"Real brasileiro","areaKm2":8509360.85,"population":212812405,"populationYear":"2025"},
+  {"iso2":"CA","iso3":"CAN","name":"Canadá","capital":"Ottawa","region":"América","currency":"Dólar canadense","areaKm2":9984670,"population":41651653,"populationYear":"2025"},
+  {"iso2":"CL","iso3":"CHL","name":"Chile","capital":"Santiago","region":"América","currency":"Peso chileno","areaKm2":756102,"population":19859921,"populationYear":"2025"},
+  {"iso2":"CN","iso3":"CHN","name":"China","capital":"Pequim (Beijing)","region":"Ásia","currency":"Iuane Renminbi","areaKm2":9596960,"population":1406585000,"populationYear":"2025"},
+  {"iso2":"CO","iso3":"COL","name":"Colômbia","capital":"Bogotá","region":"América","currency":"Peso colombiano","areaKm2":1138910,"population":53425635,"populationYear":"2025"},
+  {"iso2":"DE","iso3":"DEU","name":"Alemanha","capital":"Berlim","region":"Europa","currency":"Euro","areaKm2":357022,"population":83491249,"populationYear":"2025"},
+  {"iso2":"EG","iso3":"EGY","name":"Egito","capital":"Cairo","region":"África","currency":"Libra egípcia","areaKm2":1001450,"population":118365995,"populationYear":"2025"},
+  {"iso2":"ES","iso3":"ESP","name":"Espanha","capital":"Madri","region":"Europa","currency":"Euro","areaKm2":505370,"population":49355143,"populationYear":"2025"},
+  {"iso2":"FR","iso3":"FRA","name":"França","capital":"Paris","region":"Europa","currency":"Euro","areaKm2":643801,"population":68720337,"populationYear":"2025"},
+  {"iso2":"GB","iso3":"GBR","name":"Reino Unido","capital":"Londres","region":"Europa","currency":"Libra esterlina","areaKm2":243610,"population":69487000,"populationYear":"2025"},
+  {"iso2":"IN","iso3":"IND","name":"Índia","capital":"Nova Delhi","region":"Ásia","currency":"Rupia indiana","areaKm2":3287263,"population":1463865525,"populationYear":"2025"},
+  {"iso2":"IT","iso3":"ITA","name":"Itália","capital":"Roma","region":"Europa","currency":"Euro","areaKm2":301340,"population":58915656,"populationYear":"2025"},
+  {"iso2":"JP","iso3":"JPN","name":"Japão","capital":"Tóquio","region":"Ásia","currency":"Iene","areaKm2":377915,"population":123366734,"populationYear":"2025"},
+  {"iso2":"KR","iso3":"KOR","name":"República da Coreia","capital":"Seul","region":"Ásia","currency":"Won sul-coreano","areaKm2":99720,"population":51684564,"populationYear":"2025"},
+  {"iso2":"MX","iso3":"MEX","name":"México","capital":"Cidade do México","region":"América","currency":"Peso mexicano","areaKm2":1964375,"population":131946900,"populationYear":"2025"},
+  {"iso2":"NG","iso3":"NGA","name":"Nigéria","capital":"Abuja","region":"África","currency":"Naira","areaKm2":923768,"population":237527782,"populationYear":"2025"},
+  {"iso2":"PE","iso3":"PER","name":"Peru","capital":"Lima","region":"América","currency":"Sol","areaKm2":1285216,"population":34576665,"populationYear":"2025"},
+  {"iso2":"PT","iso3":"PRT","name":"Portugal","capital":"Lisboa","region":"Europa","currency":"Euro","areaKm2":92090,"population":10804871,"populationYear":"2025"},
+  {"iso2":"RU","iso3":"RUS","name":"Rússia (Federação Russa)","capital":"Moscovo","region":"Europa","currency":"Rublo russo","areaKm2":17098242,"population":143513328,"populationYear":"2025"},
+  {"iso2":"TR","iso3":"TUR","name":"Turquia","capital":"Ancara","region":"Ásia","currency":"Lira turca","areaKm2":783562,"population":85878556,"populationYear":"2025"},
+  {"iso2":"US","iso3":"USA","name":"Estados Unidos da América","capital":"Washington","region":"América","currency":"Dólar dos Estados Unidos","areaKm2":9833517,"population":341784857,"populationYear":"2025"},
+  {"iso2":"ZA","iso3":"ZAF","name":"África do Sul","capital":"Pretória","region":"África","currency":"Rand","areaKm2":1219090,"population":64747319,"populationYear":"2025"}];

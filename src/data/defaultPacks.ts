@@ -1,5 +1,5 @@
 /**
- * Mascarenhas Hub — catálogo base (PT-BR) dos 5 jogos.
+ * Mascarenhas Hub — catálogo base (PT-BR) dos 5 jogos clássicos (os 5 novos têm catálogo na própria pasta em src/games/).
  * É a fonte usada pelo motor da sala e também a origem do supabase/seed_catalog.sql
  * (gerado por `npm run seed`). Edite aqui e rode o script para manter ambos em sincronia.
  */

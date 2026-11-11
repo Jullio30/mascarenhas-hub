@@ -15,8 +15,10 @@ export const megaSenhaPlugin: MascarenhasGamePlugin<MSState, MSSecret, MSView> =
   minPlayers: 2,
   maxPlayers: 16,
   recommendedPlayers: '2 a 8',
-  accentColor: 'purple',
+  accentColor: 'cyan',
   iconName: 'KeyRound',
+  edition: 'classic',
+  groups: ['social', 'trivia'],
   configSchema: [
     {
       key: 'mode',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Copy, Crown, Eye, EyeOff, Play, QrCode, Trophy, UserMinus, UserCog } from 'lucide-react';
+import { BookOpen, Copy, Crown, Eye, EyeOff, Play, QrCode, Trophy, UserMinus, UserCog } from 'lucide-react';
 import { useHubStore } from '../../store/useHubStore';
 import { useRoom } from '../../hooks/useRoom';
 import { session } from '../../core/session/sessionManager';
@@ -13,6 +13,18 @@ import { ConfirmButton } from '../shared/ConfirmButton';
 import { ACCENT, GameIcon } from './gameVisuals';
 
 const REACTIONS = ['🔥', '😂', '👏', '😱', '🎉', '💀'];
+
+type GameFilter = 'all' | 'classic' | 'new' | 'deducao' | 'trivia' | 'social';
+const FILTERS: { key: GameFilter; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'classic', label: 'Clássicos' },
+  { key: 'new', label: 'Novos' },
+  { key: 'deducao', label: 'Dedução & Blefe' },
+  { key: 'trivia', label: 'Trivia & Lógica' },
+  { key: 'social', label: 'Social & Rápido' },
+];
+const matchesFilter = (g: (typeof REGISTERED_GAMES)[number], f: GameFilter) =>
+  f === 'all' || (f === 'classic' || f === 'new' ? (g.edition ?? 'classic') === f : (g.groups ?? []).includes(f));
 
 export function inviteLink(code: string) {
   const url = new URL(window.location.href);
@@ -179,11 +191,14 @@ function ConfigField({ opt, value, editable, onChange }: { opt: GameConfigOption
 
 export default function Lobby() {
   const { snapshot, presence, isHost, send } = useRoom();
+  const [filter, setFilter] = useState<GameFilter>('all');
+  const [rulesFor, setRulesFor] = useState<GameSlug | null>(null);
   if (!snapshot) return null;
+  const rulesGame = rulesFor ? getGame(rulesFor) : null;
   const game = getGame(snapshot.gameSlug);
   const config = { ...defaultConfigFor(game.slug), ...(snapshot.configs[game.slug] ?? {}) };
   const onlineCount = snapshot.players.filter((p) => presence[p.id] === 'online' || presence[p.id] === 'away').length;
-  const canStart = onlineCount >= game.minPlayers;
+  const canStart = onlineCount >= game.minPlayers && onlineCount <= game.maxPlayers;
   const host = snapshot.players.find((p) => p.id === snapshot.hostId);
 
   return (
@@ -191,28 +206,69 @@ export default function Lobby() {
       <div className="grid content-start gap-5">
         <Card>
           <SectionTitle right={!isHost && <span className="text-xs text-white/40">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {REGISTERED_GAMES.map((g) => {
-              const sel = g.slug === snapshot.gameSlug;
-              const a = ACCENT[g.accentColor];
+          <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+            {FILTERS.map((f) => {
+              const n = REGISTERED_GAMES.filter((g) => matchesFilter(g, f.key)).length;
               return (
                 <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={cn('shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition', filter === f.key ? 'border-brand-purple bg-brand-purple/20 text-white' : 'border-line text-white/60 hover:text-white')}
+                >
+                  {f.label} ({n})
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {REGISTERED_GAMES.filter((g) => matchesFilter(g, filter)).map((g) => {
+              const sel = g.slug === snapshot.gameSlug;
+              const a = ACCENT[g.accentColor];
+              const choose = () => {
+                if (!isHost) return;
+                send({ type: 'ROOM/SELECT_GAME', slug: g.slug as GameSlug });
+                sfx.click();
+              };
+              return (
+                <div
                   key={g.slug}
-                  disabled={!isHost}
-                  onClick={() => (send({ type: 'ROOM/SELECT_GAME', slug: g.slug as GameSlug }), sfx.click())}
-                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border p-4 text-left transition disabled:cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : 'border-line bg-white/[.02] enabled:hover:bg-white/[.05]')}
+                  role="button"
+                  tabIndex={isHost ? 0 : -1}
+                  aria-disabled={!isHost}
+                  aria-pressed={sel}
+                  onClick={choose}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      choose();
+                    }
+                  }}
+                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn('border-line bg-white/[.02]', isHost && 'hover:bg-white/[.05]'))}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={cn('grid h-10 w-10 place-items-center rounded-xl', a.bg)}>
+                    <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', a.bg)}>
                       <GameIcon name={g.iconName} className={a.text} size={22} />
                     </span>
-                    <span className="font-display text-lg font-bold leading-tight">{g.title}</span>
+                    <span className="min-w-0 flex-1 font-display text-lg font-bold leading-tight">{g.title}</span>
+                    {g.edition === 'new' && <Badge color="green">Novo</Badge>}
                   </div>
                   <span className="text-sm text-white/60">{g.shortDescription}</span>
-                  <span className="text-xs text-white/40">
-                    {g.minPlayers}+ jogadores • ideal {g.recommendedPlayers}
-                  </span>
-                </button>
+                  <div className="mt-auto flex items-center justify-between gap-2">
+                    <span className="text-xs text-white/40">
+                      {g.minPlayers}–{g.maxPlayers} jogadores • ideal {g.recommendedPlayers}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRulesFor(g.slug as GameSlug);
+                      }}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-bold text-white/70 hover:bg-white/10"
+                    >
+                      <BookOpen size={12} /> Ver Regras
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -244,8 +300,14 @@ export default function Lobby() {
 
         <div className="sticky bottom-3 z-20">
           {isHost ? (
-            <Button size="xl" className="w-full" disabled={!canStart} onClick={() => (send({ type: 'ROOM/START' }), sfx.reveal())} icon={<Play />}>
-              {canStart ? `Iniciar ${game.title}` : `Mínimo de ${game.minPlayers} jogadores online (${onlineCount}/${game.minPlayers})`}
+            <Button size="xl" className="w-full" disabled={!canStart || Boolean(snapshot.preparing)} loading={Boolean(snapshot.preparing)} onClick={() => (send({ type: 'ROOM/START' }), sfx.reveal())} icon={<Play />}>
+              {snapshot.preparing
+                ? 'Preparando desafios…'
+                : canStart
+                  ? `Iniciar ${game.title}`
+                  : onlineCount > game.maxPlayers
+                    ? `Máximo de ${game.maxPlayers} jogadores neste jogo`
+                    : `Mínimo de ${game.minPlayers} jogadores online (${onlineCount}/${game.minPlayers})`}
             </Button>
           ) : (
             <div className="rounded-3xl border border-line bg-surface/95 p-4 text-center font-semibold text-white/70 backdrop-blur">Aguardando {host?.nickname ?? 'o anfitrião'} iniciar a partida…</div>
@@ -265,6 +327,34 @@ export default function Lobby() {
         </Card>
         <SessionScoreboard />
       </aside>
+      <Modal open={Boolean(rulesGame)} onClose={() => setRulesFor(null)} title={rulesGame ? `Regras: ${rulesGame.title}` : ''} wide>
+        {rulesGame && (
+          <div className="grid gap-4">
+            <p className="text-white/70">{rulesGame.shortDescription}</p>
+            <ul className="grid gap-2 text-sm text-white/80">
+              {rulesGame.rulesSummary.map((r, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10 text-[10px] font-bold">{i + 1}</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+            <div className="text-xs text-white/50">
+              {rulesGame.minPlayers}–{rulesGame.maxPlayers} jogadores • ideal {rulesGame.recommendedPlayers}
+            </div>
+            {isHost && rulesGame.slug !== snapshot.gameSlug && (
+              <Button
+                onClick={() => {
+                  send({ type: 'ROOM/SELECT_GAME', slug: rulesGame.slug });
+                  setRulesFor(null);
+                }}
+              >
+                Escolher este jogo
+              </Button>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

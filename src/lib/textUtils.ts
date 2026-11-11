@@ -102,3 +102,31 @@ export function sanitizeNickname(input: string): string {
 export function sanitizeShortText(input: string, max = 40): string {
   return input.replace(/<[^>]*>/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
+
+/** Normaliza resposta livre: sem acentos/caixa/pontuação e sem artigo inicial (o, a, os, as, um, uma…). */
+export function normalizeAnswer(text: string): string {
+  return normalize(text)
+    .replace(/^(o|a|os|as|um|uma|uns|umas)\s+/, '')
+    .trim();
+}
+
+/**
+ * Duas respostas livres são "a mesma"? Igualdade normalizada ou
+ * Levenshtein ≤ 1 quando ambas têm 5+ letras (Blefe e chute do Infiltrado).
+ */
+export function isSameAnswer(a: string, b: string): boolean {
+  const x = normalizeAnswer(a);
+  const y = normalizeAnswer(b);
+  if (!x || !y) return false;
+  if (x === y || x.replace(/\s/g, '') === y.replace(/\s/g, '')) return true;
+  // respostas numéricas: os dígitos precisam ser idênticos ("999,9 kg" = "999.9", mas "45,5" ≠ "45,2")
+  if (/\d/.test(x) || /\d/.test(y)) return x.replace(/\D/g, '') === y.replace(/\D/g, '') && /\d/.test(x) && /\d/.test(y);
+  return x.length >= 5 && y.length >= 5 && levenshtein(x, y) <= 1;
+}
+
+/** "eMUS." → "Emus" — padroniza a capitalização das opções de votação. */
+export function capitalizeFirst(text: string): string {
+  const t = text.replace(/\s+/g, ' ').trim().replace(/[.!?;,]+$/, '');
+  if (!t) return t;
+  return t[0].toLocaleUpperCase('pt-BR') + t.slice(1).toLocaleLowerCase('pt-BR');
+}
