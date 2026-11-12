@@ -43,7 +43,7 @@ function QRCodeModal({ open, onClose, code }: { open: boolean; onClose: () => vo
   return (
     <Modal open={open} onClose={onClose} title="Aponte a câmera para entrar">
       <div className="mx-auto w-full max-w-xs overflow-hidden rounded-2xl bg-white p-3" dangerouslySetInnerHTML={{ __html: svg }} />
-      <div className="mt-4 text-center font-display text-3xl font-bold tracking-[.3em]">{code}</div>
+      <div className="mt-4 text-center font-arcade text-3xl tracking-[.2em]">{code}</div>
       <p className="mt-1 text-center text-sm text-white/80">Mascarenhas Hub • sala {code}</p>
     </Modal>
   );
@@ -69,7 +69,7 @@ export function RoomCodePanel() {
   return (
     <Card className="flex flex-col items-center gap-4 text-center" glow="purple">
       <div className="text-xs font-bold uppercase tracking-[.25em] text-white/80">Código da sala</div>
-      <div className="font-display text-5xl font-bold tracking-[.3em] sm:text-6xl">{streamer ? '••••••' : <span className="brand-text">{code}</span>}</div>
+      <div className="font-arcade text-5xl tracking-[.2em] sm:text-6xl">{streamer ? '••••••' : <span className="arcade-title">{code}</span>}</div>
       {mode === 'local' && <Badge color="amber">Modo Local: convide abrindo novas abas neste navegador</Badge>}
       <div className="grid w-full grid-cols-3 gap-2">
         <Button variant="secondary" size="sm" onClick={copy} icon={<Copy size={16} />}>
@@ -298,7 +298,7 @@ export default function Lobby() {
           </Card>
         </div>
 
-        <div className="sticky bottom-3 z-20">
+        <div className="sticky bottom-3 z-20 rounded-[28px] border border-line bg-obsidian/85 p-2 shadow-[0_-10px_30px_rgba(0,0,0,.45)] backdrop-blur">
           {isHost ? (
             <Button size="xl" className="w-full" disabled={!canStart || Boolean(snapshot.preparing)} loading={Boolean(snapshot.preparing)} onClick={() => (send({ type: 'ROOM/START' }), sfx.coin())} icon={<Play />}>
               {snapshot.preparing

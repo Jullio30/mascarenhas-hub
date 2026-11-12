@@ -7,9 +7,9 @@ export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   return (
     <div className="flex items-center gap-2">
       <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'h-9 w-9 shrink-0'} />
-      <span className={cn('flex flex-wrap items-center gap-x-2 gap-y-2 font-arcade leading-none', size === 'lg' ? 'text-3xl sm:text-5xl' : 'text-lg sm:text-xl')}>
+      <span className={cn('flex items-center gap-x-2 gap-y-2 font-arcade leading-none', size === 'lg' ? 'flex-wrap text-3xl sm:text-5xl' : 'whitespace-nowrap text-[15px] sm:text-xl')}>
         <span className="arcade-title">Mascarenhas</span>
-        <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-sm sm:text-base')}>HUB</span>
+        <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-[11px] sm:text-base')}>HUB</span>
       </span>
     </div>
   );

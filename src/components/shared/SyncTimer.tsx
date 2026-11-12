@@ -9,7 +9,7 @@ export function SyncTimer({ endsAt, tenths, tickSound, className }: { endsAt: nu
   if (!endsAt) return <span className={cn('font-display tabular-nums text-white/65', className)}>--</span>;
   const urgent = rem <= 3000;
   const text = tenths ? (rem / 1000).toFixed(1) : String(Math.ceil(rem / 1000));
-  return <span className={cn('font-display font-bold tabular-nums transition-colors', urgent ? 'text-arcade-red' : 'text-arcade-cyan', className)}>{text}s</span>;
+  return <span className={cn('font-arcade tabular-nums transition-colors', urgent ? 'text-arcade-red' : 'text-arcade-cyan', className)}>{text}s</span>;
 }
 
 /** Barra de progresso do tempo restante. */
@@ -38,7 +38,7 @@ export function BigCountdown({ endsAt, totalMs, tenths = true }: { endsAt: numbe
         <circle cx="80" cy="80" r={R} stroke="rgba(255,255,255,.08)" strokeWidth="10" fill="none" />
         <circle cx="80" cy="80" r={R} stroke={urgent ? '#EF4444' : '#06B6D4'} strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct)} style={{ filter: `drop-shadow(0 0 8px ${urgent ? '#EF4444' : '#06B6D4'})` }} />
       </svg>
-      <span className={cn('font-display text-6xl font-bold tabular-nums', urgent ? 'text-arcade-red' : 'text-white')}>{tenths ? (rem / 1000).toFixed(1) : Math.ceil(rem / 1000)}</span>
+      <span className={cn('font-arcade text-6xl tabular-nums', urgent ? 'text-arcade-red' : 'text-white')}>{tenths ? (rem / 1000).toFixed(1) : Math.ceil(rem / 1000)}</span>
     </div>
   );
 }

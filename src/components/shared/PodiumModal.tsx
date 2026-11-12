@@ -41,8 +41,8 @@ export default function PodiumModal() {
         <Badge color="pink">
           <Sparkles size={12} /> {getGame(podium.game).title}
         </Badge>
-        <h1 className="mt-2 font-display text-4xl font-bold">
-          Pódio Oficial do <span className="brand-text">Mascarenhas Hub</span>
+        <h1 className="mt-3 font-arcade text-3xl leading-tight sm:text-4xl">
+          Pódio Oficial do <span className="arcade-title">Mascarenhas Hub</span>
         </h1>
       </div>
 
@@ -58,7 +58,7 @@ export default function PodiumModal() {
                     {e.crown && <Crown className="text-amber-300 drop-shadow-[0_0_8px_#F59E0B]" />}
                     <Avatar id={p.avatar} size={rank === 1 ? 64 : 50} ring={rank === 1 ? '#F59E0B' : undefined} />
                     <div className={cn('mt-1 max-w-full truncate font-bold', e.playerId === meId && 'text-violet-300')}>{p.nickname}</div>
-                    <div className="font-display text-sm tabular-nums text-white/80">{e.score} pts</div>
+                    <div className="font-arcade text-sm tabular-nums text-amber-300">{e.score} pts</div>
                   </div>
                 );
               })}

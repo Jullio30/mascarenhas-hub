@@ -49,7 +49,7 @@ export function MatchScoreboard() {
           <Avatar id={p.avatar} size={28} dim={!presence[p.id]} />
           <span className="flex-1 truncate text-sm font-semibold">{p.nickname}</span>
           <PresenceDot status={presence[p.id] ?? 'disconnected'} />
-          <span className="w-12 text-right font-display font-bold tabular-nums">{p.matchScore}</span>
+          <span className="w-14 text-right font-arcade text-amber-300 tabular-nums">{p.matchScore}</span>
         </div>
       ))}
     </div>
@@ -135,12 +135,12 @@ export default function MatchView() {
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-4 lg:grid-cols-[1fr_340px]">
       <div className="grid content-start gap-5">
-        <div className="flex items-center gap-3 rounded-3xl border border-line bg-surface/80 p-3 backdrop-blur">
+        <div className={cn('flex items-center gap-3 rounded-3xl border-2 bg-surface/80 p-3 backdrop-blur', a.edge)}>
           <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl', a.bg)}>
             <GameIcon name={plugin.iconName} className={a.text} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-display font-bold">{plugin.title}</div>
+            <div className={cn('truncate font-arcade text-base tracking-wide sm:text-lg', a.text)}>{plugin.title}</div>
             <div className="text-xs text-white/80">
               {g.roundLabel ?? `Rodada ${Math.min(g.round, g.totalRounds)} de ${g.totalRounds}`}
             </div>
