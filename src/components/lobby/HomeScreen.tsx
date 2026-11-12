@@ -109,7 +109,7 @@ export default function HomeScreen() {
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           {REGISTERED_GAMES.map((g) => (
-            <div key={g.slug} className="flex items-center gap-3 rounded-2xl border border-line bg-surface/60 p-3">
+            <div key={g.slug} className={cn('flex items-center gap-3 rounded-2xl border-2 bg-surface/70 p-3 transition hover:-translate-y-0.5', ACCENT[g.accentColor].edge)}>
               <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl', ACCENT[g.accentColor].bg)}>
                 <GameIcon name={g.iconName} className={ACCENT[g.accentColor].text} />
               </span>

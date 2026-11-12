@@ -7,8 +7,9 @@ export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   return (
     <div className="flex items-center gap-2">
       <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'h-9 w-9 shrink-0'} />
-      <span className={cn('font-display font-extrabold tracking-tight', size === 'lg' ? 'text-4xl sm:text-6xl' : 'text-xl sm:text-2xl')}>
-        <span className="brand-text">Mascarenhas</span> Hub
+      <span className={cn('flex flex-wrap items-center gap-x-2 gap-y-2 font-arcade leading-none', size === 'lg' ? 'text-3xl sm:text-5xl' : 'text-lg sm:text-xl')}>
+        <span className="arcade-title">Mascarenhas</span>
+        <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309,0_0_18px_rgba(245,158,11,.6)]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-sm sm:text-base')}>HUB</span>
       </span>
     </div>
   );
@@ -58,7 +59,7 @@ export function ConnectionBadge() {
 
 export function Header({ onLeave }: { onLeave?: () => void }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-obsidian/80 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b-2 border-fuchsia-500/40 bg-obsidian/80 shadow-[0_0_24px_rgba(217,70,239,.25)] backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
         <Logo />
         <div className="flex items-center gap-2">

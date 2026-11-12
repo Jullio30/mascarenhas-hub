@@ -4,19 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#141626',
-        surface: '#1D2036',
-        surface2: '#282C46',
-        line: 'rgba(255,255,255,0.15)',
+        obsidian: '#150E2C',
+        surface: '#21174A',
+        surface2: '#2D2163',
+        line: 'rgba(196,170,255,0.24)',
         brand: { purple: '#8B5CF6', pink: '#EC4899' },
         arcade: { cyan: '#06B6D4', red: '#EF4444', green: '#10B981', amber: '#F59E0B' },
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
         display: ['"Bricolage Grotesque"', '"Plus Jakarta Sans"', 'sans-serif'],
+        arcade: ['Bungee', '"Bricolage Grotesque"', 'sans-serif'],
       },
       boxShadow: {
-        neon: '0 0 0 1px rgba(139,92,246,.6), 0 0 24px rgba(139,92,246,.35)',
+        neon: '0 0 0 2px rgba(217,70,239,.75), 0 0 32px rgba(217,70,239,.45)',
         'neon-cyan': '0 0 0 1px rgba(6,182,212,.6), 0 0 24px rgba(6,182,212,.35)',
         'neon-red': '0 0 0 1px rgba(239,68,68,.7), 0 0 28px rgba(239,68,68,.45)',
         'neon-green': '0 0 0 1px rgba(16,185,129,.6), 0 0 24px rgba(16,185,129,.35)',

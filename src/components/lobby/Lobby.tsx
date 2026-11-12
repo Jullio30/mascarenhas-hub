@@ -243,7 +243,7 @@ export default function Lobby() {
                       choose();
                     }
                   }}
-                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn('border-line bg-surface/70', isHost && 'hover:bg-white/[.05]'))}
+                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border-2 p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn(a.edge, 'bg-surface/70', isHost && 'hover:-translate-y-0.5 hover:bg-white/[.05]'))}
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', a.bg)}>
