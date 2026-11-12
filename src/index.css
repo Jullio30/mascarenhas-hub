@@ -24,6 +24,24 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Grid sem colunas explícitas = 1 coluna que respeita a largura da tela (o padrão "auto" cresce até o maior
+   conteúdo e empurra a página para o lado). Classes grid-cols-* continuam valendo, pois vêm depois. */
+@layer base {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Textos digitados pelos jogadores (apelidos, blefes, dicas) podem ser uma "palavra" enorme sem espaço:
+   quebra onde for preciso em vez de alargar a coluna e empurrar a tela para o lado. */
+body {
+  overflow-wrap: anywhere;
+}
+/* rede de segurança: a página nunca rola na horizontal (sem criar contêiner de rolagem, o sticky continua funcionando) */
+#root {
+  overflow-x: clip;
+}
+
 /* Inputs com 16px evitam o zoom automático do Safari iOS */
 input,
 select,

@@ -45,7 +45,8 @@ function Board({ s, players }: { s: SopState; players: Player[] }) {
             const t = tileAt(n);
             const st = TILE_STYLE[t];
             const Icon = st.icon;
-            const here = byPos[n] ?? [];
+            // quem está na vez aparece sempre entre os peões visíveis
+            const here = [...(byPos[n] ?? [])].sort((a, b) => Number(b === s.currentId) - Number(a === s.currentId));
             return (
               <div
                 key={n}
@@ -55,8 +56,8 @@ function Board({ s, players }: { s: SopState; players: Player[] }) {
               >
                 <span className="self-start text-[10px] font-bold leading-none text-white/80">{n}</span>
                 {Icon && <Icon size={16} style={{ color: st.color }} className="shrink-0" />}
-                <div className="flex flex-wrap justify-center -space-x-2">
-                  {here.slice(0, 4).map((id) => {
+                <div className="flex flex-nowrap items-center justify-center -space-x-2">
+                  {here.slice(0, here.length > 3 ? 2 : 3).map((id) => {
                     const p = players.find((x) => x.id === id);
                     return p ? (
                       <span key={id} className={cn('rounded-full', id === s.currentId && 'ring-2 ring-arcade-cyan')}>
@@ -64,7 +65,7 @@ function Board({ s, players }: { s: SopState; players: Player[] }) {
                       </span>
                     ) : null;
                   })}
-                  {here.length > 4 && <span className="text-[9px] font-bold">+{here.length - 4}</span>}
+                  {here.length > 3 && <span className="relative z-10 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-surface2 px-0.5 text-[9px] font-bold ring-1 ring-white/30">+{here.length - 2}</span>}
                 </div>
               </div>
             );

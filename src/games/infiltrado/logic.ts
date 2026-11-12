@@ -439,6 +439,29 @@ export const infiltradoEngine: GameEngine<InfState, InfSecret> = {
   tick(d, ctx) {
     const { pub, sec } = d;
     if (!pub.endsAt) return false;
+    // jogador removido pelo anfitrião: sai do jogo como eliminado e a vitória é reavaliada
+    const removed = pub.phase === 'MATCH_RESULT' ? [] : living(pub).filter((id) => !ctx.players.some((p) => p.id === id));
+    if (removed.length) {
+      removed.forEach((id) => (pub.alive[id] = false));
+      // votos dados por ele ou nele deixam de valer
+      Object.keys(sec.votes).forEach((v) => {
+        if (removed.includes(v) || removed.includes(sec.votes[v])) delete sec.votes[v];
+      });
+      pub.votedIds = pub.votedIds.filter((id) => !removed.includes(id));
+      if (pub.tied) pub.tied = pub.tied.filter((id) => !removed.includes(id));
+      if (pub.tieVoters) pub.tieVoters = pub.tieVoters.filter((id) => !removed.includes(id));
+      ctx.log(`Um jogador foi removido da partida`);
+      const alive = living(pub);
+      const I = alive.filter((id) => sec.undercoverIds.includes(id)).length;
+      if (I === 0) finishMatch(d, ctx, 'COMUNS', 'Nenhum Infiltrado restou na partida!');
+      else if (I >= alive.length - I) finishMatch(d, ctx, 'INFILTRADOS', 'Os Infiltrados alcançaram a paridade numérica!');
+      else if (pub.phase === 'CLUE_ROUND' && !pub.alive[pub.order[pub.clueIndex]]) addClue(d, ctx, '— removido', true);
+      return true;
+    }
+    if (pub.phase === 'CLUE_ROUND' && !pub.alive[pub.order[pub.clueIndex]]) {
+      addClue(d, ctx, '— removido', true);
+      return true;
+    }
     if (pub.phase === 'CLUE_ROUND') {
       const active = pub.order[pub.clueIndex];
       const offlineSkip = !ctx.isOnline(active) && ctx.now > pub.endsAt - CLUE_MS + OFFLINE_SKIP_MS;

@@ -6,7 +6,7 @@ import { cn } from '../ui';
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   return (
     <div className="flex items-center gap-2">
-      <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'h-9 w-9 shrink-0'} />
+      <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'hidden h-9 w-9 shrink-0 min-[400px]:block'} />
       <span className={cn('flex items-center gap-x-2 gap-y-2 font-arcade leading-none', size === 'lg' ? 'flex-wrap text-3xl sm:text-5xl' : 'whitespace-nowrap text-[15px] sm:text-xl')}>
         <span className="arcade-title">Mascarenhas</span>
         <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-[11px] sm:text-base')}>HUB</span>
@@ -20,7 +20,7 @@ export function SoundToggle() {
   const setPrefs = useHubStore((s) => s.setPrefs);
   return (
     <button
-      className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/80 hover:bg-white/10 hover:text-white"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:h-11 sm:w-11 border-line text-white/80 hover:bg-white/10 hover:text-white"
       onClick={() => {
         setPrefs({ sound: !sound });
         if (!sound) {
@@ -41,7 +41,7 @@ export function CrtToggle() {
   const setPrefs = useHubStore((s) => s.setPrefs);
   return (
     <button
-      className={cn('grid h-11 w-11 place-items-center rounded-xl border hover:bg-white/10 hover:text-white', crt ? 'border-cyan-400/60 text-cyan-300' : 'border-line text-white/80')}
+      className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:h-11 sm:w-11 hover:bg-white/10 hover:text-white', crt ? 'border-cyan-400/60 text-cyan-300' : 'border-line text-white/80')}
       onClick={() => {
         setPrefs({ crt: !crt });
         sfx.click();
@@ -85,14 +85,14 @@ export function ConnectionBadge() {
 export function Header({ onLeave }: { onLeave?: () => void }) {
   return (
     <header className="sticky top-0 z-30 border-b-2 border-fuchsia-500/40 bg-obsidian/80 shadow-[0_0_14px_rgba(217,70,239,.15)] backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4">
         <Logo />
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <ConnectionBadge />
           <CrtToggle />
           <SoundToggle />
           {onLeave && (
-            <button onClick={onLeave} className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/80 hover:bg-arcade-red/20 hover:text-white" aria-label="Sair da sala" title="Sair da sala">
+            <button onClick={onLeave} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border sm:h-11 sm:w-11 border-line text-white/80 hover:bg-arcade-red/20 hover:text-white" aria-label="Sair da sala" title="Sair da sala">
               <LogOut size={20} />
             </button>
           )}

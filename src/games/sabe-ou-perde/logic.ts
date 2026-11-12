@@ -107,8 +107,15 @@ function drawQuestion(d: Draft, ctx: EngineCtx) {
   d.pub.question = { id: q.id, category: q.category, text: q.text, options: order.map((i) => q!.options[i]) };
 }
 
+const present = (ctx: EngineCtx, id: string) => ctx.players.some((p) => p.id === id);
+
 function beginTurn(d: Draft, ctx: EngineCtx) {
   const { pub } = d;
+  // jogador removido pelo anfitrião sai da rotação (sem turno, sem vitória)
+  for (let i = 0; i < pub.turnOrder.length && !present(ctx, pub.turnOrder[pub.turnIndex]); i++) {
+    pub.turnIndex = (pub.turnIndex + 1) % pub.turnOrder.length;
+    pub.isExtraTurn = false;
+  }
   pub.currentId = pub.turnOrder[pub.turnIndex];
   pub.dice = null;
   pub.question = null;
@@ -119,7 +126,7 @@ function beginTurn(d: Draft, ctx: EngineCtx) {
   pub.turnCount += 1;
   label(pub);
   if (pub.turnCount > pub.turnOrder.length * MAX_TURNS_PER_PLAYER) {
-    const leader = [...pub.turnOrder].sort((a, b) => pub.tokens[b].pos - pub.tokens[a].pos)[0];
+    const leader = pub.turnOrder.filter((id) => present(ctx, id)).sort((a, b) => pub.tokens[b].pos - pub.tokens[a].pos)[0] ?? pub.currentId;
     return declareWinner(d, ctx, leader, 'Limite de turnos atingido: vence quem está mais perto da Coroa!');
   }
   const tok = pub.tokens[pub.currentId];

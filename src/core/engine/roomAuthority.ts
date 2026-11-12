@@ -18,6 +18,8 @@ import type {
 } from '../../types/game.types';
 import { getGame, defaultConfigFor, REGISTERED_GAMES } from '../registry/gameRegistry';
 import { emptyStats, shiftTimestamps } from './helpers';
+import { sanitizeNickname } from '../../lib/textUtils';
+import { AVATARS } from '../../data/avatars';
 import type { PlayerProfile } from '../realtime/roomChannel';
 
 export type AuthorityListener = (snap: RoomSnapshot, views: Record<string, unknown>, secret: unknown, viewsChanged: boolean) => void;
@@ -47,7 +49,19 @@ export function makeInitialSnapshot(code: string, roomId: string | null, host: P
   };
 }
 
-export function makePlayer(id: string, profile: PlayerProfile, joinedAt: number): Player {
+/** Perfil vindo da rede: apelido limpo (2–16) e avatar existente, sempre. */
+export function cleanProfile(profile: Partial<PlayerProfile> | null | undefined): PlayerProfile {
+  const nick = sanitizeNickname(String(profile?.nickname ?? ''));
+  const avatar = String(profile?.avatar ?? '');
+  return {
+    ...(profile as PlayerProfile),
+    nickname: nick.length >= 2 ? nick : 'Jogador',
+    avatar: AVATARS.some((a) => a.id === avatar) ? avatar : AVATARS[0].id,
+  };
+}
+
+export function makePlayer(id: string, rawProfile: PlayerProfile, joinedAt: number): Player {
+  const profile = cleanProfile(rawProfile);
   return {
     id,
     nickname: profile.nickname,
@@ -114,8 +128,9 @@ export class RoomAuthority {
     this.snap.log = [...this.snap.log, { id: crypto.randomUUID(), ts: this.now(), text }].slice(-MAX_LOG);
   }
 
-  addPlayer(id: string, profile: PlayerProfile, joinedAt: number) {
-    if (this.snap.kicked.includes(id)) return;
+  addPlayer(id: string, rawProfile: PlayerProfile, joinedAt: number) {
+    if (typeof id !== 'string' || !id || this.snap.kicked.includes(id)) return;
+    const profile = cleanProfile(rawProfile);
     const existing = this.snap.players.find((p) => p.id === id);
     if (existing) {
       if (existing.nickname === profile.nickname && existing.avatar === profile.avatar) {
@@ -133,6 +148,8 @@ export class RoomAuthority {
 
   /** Processa qualquer ação recebida (comandos de sala ou jogadas). */
   handle(from: string, action: GameAction) {
+    // Ações chegam da rede: nunca confie no formato (um cliente quebrado não pode derrubar a sala).
+    if (!action || typeof action !== 'object' || typeof action.type !== 'string' || typeof from !== 'string') return;
     const isHost = from === this.snap.hostId;
     const t = action.type;
     if (t.startsWith('ROOM/')) {
@@ -273,8 +290,9 @@ export class RoomAuthority {
       players,
       hostId: this.snap.hostId,
       catalog: this.catalog,
-      isOnline: this.isOnline,
-      onlineIds: () => players.filter((p) => this.isOnline(p.id)).map((p) => p.id),
+      // para os motores, jogador expulso conta como desconectado (nunca recebe a vez)
+      isOnline: (id) => !this.snap.kicked.includes(id) && this.isOnline(id),
+      onlineIds: () => players.filter((p) => !this.snap.kicked.includes(p.id) && this.isOnline(p.id)).map((p) => p.id),
       award: (id, pts) => {
         const p = byId(id);
         if (!p || !pts) return;
@@ -316,7 +334,14 @@ export class RoomAuthority {
     const players = structuredClone(this.snap.players);
     const logs: string[] = [];
     const ctx = this.makeCtx(players, this.snap.configs[this.snap.gameSlug] ?? defaultConfigFor(this.snap.gameSlug), logs);
-    const changed = fn(draft, ctx, plugin);
+    let changed: boolean;
+    try {
+      changed = fn(draft, ctx, plugin);
+    } catch (err) {
+      // Transacional: o rascunho é descartado e o estado da sala continua íntegro.
+      console.warn('[Mascarenhas Hub] ação ignorada por erro no motor do jogo', err);
+      return;
+    }
     if (!changed) return;
     this.snap.game = draft.pub;
     this.secret = draft.sec;
@@ -332,7 +357,7 @@ export class RoomAuthority {
     if (this.snap.status !== 'LOBBY' || this.starting) return;
     const plugin = getGame(this.snap.gameSlug);
     const eligible = () => this.snap.players.filter((p) => this.isOnline(p.id) || Object.keys(this.presence).length === 0);
-    if (eligible().length < plugin.minPlayers) return;
+    if (eligible().length < plugin.minPlayers || eligible().length > plugin.maxPlayers) return;
     const config = { ...defaultConfigFor(plugin.slug), ...(this.snap.configs[plugin.slug] ?? {}) };
 
     let external: unknown;
@@ -355,7 +380,7 @@ export class RoomAuthority {
     }
 
     const participants = eligible();
-    if (participants.length < plugin.minPlayers) return this.commit(false);
+    if (participants.length < plugin.minPlayers || participants.length > plugin.maxPlayers) return this.commit(false);
     // jogadores desconectados não entram na partida
     this.snap.players.forEach((p) => {
       p.matchScore = 0;

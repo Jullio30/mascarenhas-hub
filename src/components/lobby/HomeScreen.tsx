@@ -101,7 +101,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.1fr_1fr] lg:py-14">
+    <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:py-14">
       <section className="flex flex-col justify-center gap-6">
         <Logo size="lg" />
         <p className="max-w-lg text-lg text-white/80">

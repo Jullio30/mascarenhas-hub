@@ -202,7 +202,7 @@ export default function Lobby() {
   const host = snapshot.players.find((p) => p.id === snapshot.hostId);
 
   return (
-    <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[1fr_380px]">
+    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="grid content-start gap-5">
         <Card>
           <SectionTitle right={!isHost && <span className="text-xs text-white/70">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
@@ -315,7 +315,7 @@ export default function Lobby() {
         </div>
       </div>
 
-      <aside className="grid content-start gap-5">
+      <aside className="grid min-w-0 grid-cols-1 content-start gap-5">
         <RoomCodePanel />
         <Card>
           <SectionTitle right={<Badge color="green">{onlineCount} online</Badge>}>Jogadores ({snapshot.players.length})</SectionTitle>

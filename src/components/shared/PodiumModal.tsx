@@ -49,15 +49,15 @@ export default function PodiumModal() {
       <div className="flex items-end justify-center gap-3 sm:gap-6">
         {columns.map(({ rank, entries }) => (
           <div key={rank} className="flex w-28 flex-col items-center gap-2 sm:w-40">
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex w-full flex-wrap justify-center gap-2">
               {entries.map((e) => {
                 const p = nameOf(e.playerId);
                 if (!p) return null;
                 return (
-                  <div key={e.playerId} className="flex flex-col items-center animate-pop">
+                  <div key={e.playerId} className="flex min-w-0 max-w-full flex-col items-center animate-pop">
                     {e.crown && <Crown className="text-amber-300 drop-shadow-[0_0_8px_#F59E0B]" />}
                     <Avatar id={p.avatar} size={rank === 1 ? 64 : 50} ring={rank === 1 ? '#F59E0B' : undefined} />
-                    <div className={cn('mt-1 max-w-full truncate font-bold', e.playerId === meId && 'text-violet-300')}>{p.nickname}</div>
+                    <div className={cn('mt-1 w-full max-w-full truncate text-center font-bold [overflow-wrap:normal]', e.playerId === meId && 'text-violet-300')}>{p.nickname}</div>
                     <div className="font-arcade text-sm tabular-nums text-amber-300">{e.score} pts</div>
                   </div>
                 );
@@ -89,13 +89,13 @@ export default function PodiumModal() {
       <Card>
         <div className="grid gap-1.5">
           {podium.entries.map((e) => (
-            <div key={e.playerId} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2">
-              <span>
+            <div key={e.playerId} className="flex items-center justify-between gap-3 rounded-xl bg-white/[.03] px-3 py-2">
+              <span className="min-w-0 truncate [overflow-wrap:normal]">
                 <b className="mr-2 text-white/70">{e.rank}º</b>
                 {nameOf(e.playerId)?.nickname}
                 {e.crown && ' 👑'}
               </span>
-              <span className="font-display tabular-nums">{e.score} pts</span>
+              <span className="shrink-0 whitespace-nowrap font-display tabular-nums">{e.score} pts</span>
             </div>
           ))}
         </div>

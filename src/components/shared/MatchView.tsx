@@ -133,8 +133,8 @@ export default function MatchView() {
   const hideTimer = g.phase === 'FINISHED';
 
   return (
-    <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-4 lg:grid-cols-[1fr_340px]">
-      <div className="grid content-start gap-5">
+    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-w-0 content-start gap-5">
         <div className={cn('flex items-center gap-3 rounded-3xl border-2 bg-surface/80 p-3 backdrop-blur', a.edge)}>
           <span className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-xl', a.bg)}>
             <GameIcon name={plugin.iconName} className={a.text} />
@@ -162,7 +162,7 @@ export default function MatchView() {
         )}
       </div>
 
-      <aside className="hidden content-start gap-5 lg:grid">
+      <aside className="hidden min-w-0 grid-cols-1 content-start gap-5 lg:grid">
         <Card>
           <SectionTitle right={<Badge color="purple">ao vivo</Badge>}>Placar da partida</SectionTitle>
           <MatchScoreboard />

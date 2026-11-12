@@ -14,7 +14,9 @@ type Send = GameMatchProps<OcState>['send'];
 /** Lista ordenável: arrastar (pointer events, mouse + toque), botões ▲/▼ e toque-para-trocar. */
 function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView | null; meId: string; send: Send; totalMs: number }) {
   const initial = s.challenge.elements.map((e) => e.id);
-  const [order, setOrder] = useState<string[]>(view?.myOrder ?? initial);
+  // a visão privada pode chegar atrasada com a ordem da rodada ANTERIOR: só aproveita se for deste desafio
+  const sameItems = (ids: string[] | null | undefined): ids is string[] => Boolean(ids && ids.length === initial.length && initial.every((id) => ids.includes(id)));
+  const [order, setOrder] = useState<string[]>(sameItems(view?.myOrder) ? view!.myOrder! : initial);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [lockedLocal, setLockedLocal] = useState(false);
@@ -23,6 +25,12 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
   const listRef = useRef<HTMLDivElement>(null);
   const draftTimer = useRef<number | null>(null);
   const byId = Object.fromEntries(s.challenge.elements.map((e) => [e.id, e]));
+  // rede de segurança: se a ordem local não corresponde aos itens do desafio, recomeça da ordem original
+  useEffect(() => {
+    if (!sameItems(order)) setOrder(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.challenge.id]);
+  const shown = sameItems(order) ? order : initial;
 
   // envia o rascunho (debounce) para o auto-envio no fim do tempo
   const update = (next: string[]) => {
@@ -68,8 +76,8 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
       <PhaseTitle kicker={`Desafio ${s.round} de ${s.totalRounds}`} title={s.challenge.title} sub={locked ? 'Ordem travada! Aguardando os demais…' : 'Arraste pela alça, use ▲▼ ou toque em dois itens para trocá-los.'} />
       <TimerBar endsAt={s.endsAt} totalMs={totalMs} />
       <div className="text-center text-xs font-bold uppercase tracking-widest text-cyan-300">{s.challenge.topSlotLabel}</div>
-      <div ref={listRef} className="grid gap-2" onPointerMove={onPointerMove} onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
-        {order.map((id, i) => {
+      <div ref={listRef} className="grid gap-2" onPointerMove={onPointerMove} onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)} onLostPointerCapture={() => setDragging(null)}>
+        {shown.map((id, i) => {
           const el = byId[id];
           if (!el) return null;
           const isSel = selected === id;
@@ -94,6 +102,8 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
                 onPointerDown={(e) => {
                   if (!canPlay) return;
                   e.preventDefault();
+                  // captura o ponteiro: soltar fora da lista também encerra o arrasto (evita arrasto "preso" no mouse)
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
                   setSelected(null);
                   setDragging(id);
                 }}
@@ -111,7 +121,7 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
                 <button type="button" aria-label="Subir" disabled={!canPlay || i === 0} onClick={() => move(id, i - 1)} className="grid h-7 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-25">
                   <ChevronUp size={18} />
                 </button>
-                <button type="button" aria-label="Descer" disabled={!canPlay || i === order.length - 1} onClick={() => move(id, i + 1)} className="grid h-7 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-25">
+                <button type="button" aria-label="Descer" disabled={!canPlay || i === shown.length - 1} onClick={() => move(id, i + 1)} className="grid h-7 w-9 place-items-center rounded-lg text-white/80 hover:bg-white/10 disabled:opacity-25">
                   <ChevronDown size={18} />
                 </button>
               </div>
