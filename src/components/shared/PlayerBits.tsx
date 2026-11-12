@@ -58,7 +58,7 @@ export function PlayerChip({
           <span className="truncate font-semibold">{player.nickname}</span>
           {status && <PresenceDot status={status} />}
         </div>
-        {sub && <div className="truncate text-xs text-white/70">{sub}</div>}
+        {sub && <div className="truncate text-xs text-white/80">{sub}</div>}
       </div>
       {right}
     </div>

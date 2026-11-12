@@ -44,7 +44,7 @@ function QRCodeModal({ open, onClose, code }: { open: boolean; onClose: () => vo
     <Modal open={open} onClose={onClose} title="Aponte a câmera para entrar">
       <div className="mx-auto w-full max-w-xs overflow-hidden rounded-2xl bg-white p-3" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="mt-4 text-center font-display text-3xl font-bold tracking-[.3em]">{code}</div>
-      <p className="mt-1 text-center text-sm text-white/70">Mascarenhas Hub • sala {code}</p>
+      <p className="mt-1 text-center text-sm text-white/80">Mascarenhas Hub • sala {code}</p>
     </Modal>
   );
 }
@@ -68,7 +68,7 @@ export function RoomCodePanel() {
   };
   return (
     <Card className="flex flex-col items-center gap-4 text-center" glow="purple">
-      <div className="text-xs font-bold uppercase tracking-[.25em] text-white/70">Código da sala</div>
+      <div className="text-xs font-bold uppercase tracking-[.25em] text-white/80">Código da sala</div>
       <div className="font-display text-5xl font-bold tracking-[.3em] sm:text-6xl">{streamer ? '••••••' : <span className="brand-text">{code}</span>}</div>
       {mode === 'local' && <Badge color="amber">Modo Local: convide abrindo novas abas neste navegador</Badge>}
       <div className="grid w-full grid-cols-3 gap-2">
@@ -149,7 +149,7 @@ function ConfigField({ opt, value, editable, onChange }: { opt: GameConfigOption
   const base = 'min-h-12 w-full rounded-2xl border border-line bg-obsidian/70 px-3 text-base text-white outline-none focus:border-brand-purple disabled:opacity-60';
   return (
     <label className="grid gap-1.5">
-      <span className="text-sm font-semibold text-white/70">{opt.label}</span>
+      <span className="text-sm font-semibold text-white/80">{opt.label}</span>
       {opt.type === 'boolean' ? (
         <button
           type="button"
@@ -205,7 +205,7 @@ export default function Lobby() {
     <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[1fr_380px]">
       <div className="grid content-start gap-5">
         <Card>
-          <SectionTitle right={!isHost && <span className="text-xs text-white/60">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
+          <SectionTitle right={!isHost && <span className="text-xs text-white/70">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
           <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
             {FILTERS.map((f) => {
               const n = REGISTERED_GAMES.filter((g) => matchesFilter(g, f.key)).length;
@@ -254,7 +254,7 @@ export default function Lobby() {
                   </div>
                   <span className="text-sm text-white/75">{g.shortDescription}</span>
                   <div className="mt-auto flex items-center justify-between gap-2">
-                    <span className="text-xs text-white/60">
+                    <span className="text-xs text-white/70">
                       {g.minPlayers}–{g.maxPlayers} jogadores • ideal {g.recommendedPlayers}
                     </span>
                     <button
@@ -263,7 +263,7 @@ export default function Lobby() {
                         e.stopPropagation();
                         setRulesFor(g.slug as GameSlug);
                       }}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-bold text-white/70 hover:bg-white/10"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-bold text-white/80 hover:bg-white/10"
                     >
                       <BookOpen size={12} /> Ver Regras
                     </button>
@@ -300,7 +300,7 @@ export default function Lobby() {
 
         <div className="sticky bottom-3 z-20">
           {isHost ? (
-            <Button size="xl" className="w-full" disabled={!canStart || Boolean(snapshot.preparing)} loading={Boolean(snapshot.preparing)} onClick={() => (send({ type: 'ROOM/START' }), sfx.reveal())} icon={<Play />}>
+            <Button size="xl" className="w-full" disabled={!canStart || Boolean(snapshot.preparing)} loading={Boolean(snapshot.preparing)} onClick={() => (send({ type: 'ROOM/START' }), sfx.coin())} icon={<Play />}>
               {snapshot.preparing
                 ? 'Preparando desafios…'
                 : canStart
@@ -310,7 +310,7 @@ export default function Lobby() {
                     : `Mínimo de ${game.minPlayers} jogadores online (${onlineCount}/${game.minPlayers})`}
             </Button>
           ) : (
-            <div className="rounded-3xl border border-line bg-surface/95 p-4 text-center font-semibold text-white/70 backdrop-blur">Aguardando {host?.nickname ?? 'o anfitrião'} iniciar a partida…</div>
+            <div className="rounded-3xl border border-line bg-surface/95 p-4 text-center font-semibold text-white/80 backdrop-blur">Aguardando {host?.nickname ?? 'o anfitrião'} iniciar a partida…</div>
           )}
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function Lobby() {
       <Modal open={Boolean(rulesGame)} onClose={() => setRulesFor(null)} title={rulesGame ? `Regras: ${rulesGame.title}` : ''} wide>
         {rulesGame && (
           <div className="grid gap-4">
-            <p className="text-white/70">{rulesGame.shortDescription}</p>
+            <p className="text-white/80">{rulesGame.shortDescription}</p>
             <ul className="grid gap-2 text-sm text-white/80">
               {rulesGame.rulesSummary.map((r, i) => (
                 <li key={i} className="flex gap-2">
@@ -339,7 +339,7 @@ export default function Lobby() {
                 </li>
               ))}
             </ul>
-            <div className="text-xs text-white/70">
+            <div className="text-xs text-white/80">
               {rulesGame.minPlayers}–{rulesGame.maxPlayers} jogadores • ideal {rulesGame.recommendedPlayers}
             </div>
             {isHost && rulesGame.slug !== snapshot.gameSlug && (
@@ -375,7 +375,7 @@ export function SessionScoreboard() {
         {sorted.map((p, i) => (
           <div key={p.id} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2 text-sm">
             <span className="truncate">
-              <b className="mr-2 text-white/60">{i + 1}º</b>
+              <b className="mr-2 text-white/70">{i + 1}º</b>
               {p.nickname}
             </span>
             <span className="font-display tabular-nums">

@@ -16,14 +16,14 @@ export function ProfileEditor({ nickname, setNickname, avatar, setAvatar, error 
   return (
     <div className="grid gap-4">
       <div>
-        <label className="mb-2 block text-sm font-semibold text-white/70" htmlFor="nick">
+        <label className="mb-2 block text-sm font-semibold text-white/80" htmlFor="nick">
           Seu apelido
         </label>
         <Input id="nick" value={nickname} onChange={(e) => setNickname(e.target.value.slice(0, 16))} placeholder="Ex: Mascarenhas" maxLength={16} autoComplete="nickname" invalid={Boolean(error)} />
         {error && <p className="mt-1 text-sm text-arcade-red">{error}</p>}
       </div>
       <div>
-        <div className="mb-2 text-sm font-semibold text-white/70">Escolha seu avatar</div>
+        <div className="mb-2 text-sm font-semibold text-white/80">Escolha seu avatar</div>
         <div className="grid grid-cols-8 gap-2">
           {AVATARS.map((a) => (
             <button
@@ -88,10 +88,10 @@ export default function HomeScreen() {
       return;
     }
     setBusy(kind);
+    sfx.coin(); // "insert coin"
     try {
       if (kind === 'create') await session.createRoom(m, profile);
       else await session.joinRoom(m, normalizeRoomCode(code), profile);
-      sfx.success();
     } catch (err) {
       toast((err as Error).message || 'Algo deu errado.', 'error');
       sfx.error();
@@ -104,7 +104,7 @@ export default function HomeScreen() {
     <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.1fr_1fr] lg:py-14">
       <section className="flex flex-col justify-center gap-6">
         <Logo size="lg" />
-        <p className="max-w-lg text-lg text-white/70">
+        <p className="max-w-lg text-lg text-white/80">
           Party games multiplayer para reunir os amigos — no mesmo sofá com celulares + TV, ou à distância numa chamada de voz.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -115,7 +115,7 @@ export default function HomeScreen() {
               </span>
               <div className="min-w-0">
                 <div className="font-bold">{g.title}</div>
-                <div className="truncate text-xs text-white/70">{g.recommendedPlayers} jogadores</div>
+                <div className="truncate text-xs text-white/80">{g.recommendedPlayers} jogadores</div>
               </div>
             </div>
           ))}
@@ -143,7 +143,7 @@ export default function HomeScreen() {
             <Button size="lg" onClick={() => run('create')} loading={busy === 'create'} disabled={Boolean(busy)} icon={<Plus />}>
               Criar sala
             </Button>
-            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-white/55">
+            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-white/65">
               <span className="h-px flex-1 bg-line" /> ou entre com um código <span className="h-px flex-1 bg-line" />
             </div>
             <form
@@ -169,12 +169,12 @@ export default function HomeScreen() {
             </form>
           </div>
           {isSupabaseConfigured && (
-            <button className="mt-4 w-full text-center text-xs text-white/60 underline-offset-4 hover:text-white/70 hover:underline" onClick={() => setMode(mode === 'local' ? 'supabase' : 'local')}>
+            <button className="mt-4 w-full text-center text-xs text-white/70 underline-offset-4 hover:text-white/80 hover:underline" onClick={() => setMode(mode === 'local' ? 'supabase' : 'local')}>
               {mode === 'local' ? 'Voltar ao modo online (Supabase)' : 'Testar no Modo Local (abas do mesmo navegador)'}
             </button>
           )}
         </Card>
-        <p className="flex items-center justify-center gap-2 text-center text-xs text-white/60">
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-white/70">
           <Users size={14} /> Sem cadastro: seu apelido e avatar ficam salvos neste dispositivo.
         </p>
       </section>

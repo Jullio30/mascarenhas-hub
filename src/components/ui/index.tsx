@@ -78,7 +78,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'min-h-12 w-full rounded-2xl border bg-obsidian/70 px-4 text-base text-white placeholder:text-white/55 outline-none transition focus:border-brand-purple focus:shadow-neon',
+        'min-h-12 w-full rounded-2xl border bg-obsidian/70 px-4 text-base text-white placeholder:text-white/65 outline-none transition focus:border-brand-purple focus:shadow-neon',
         invalid ? 'border-arcade-red animate-shake' : 'border-line',
         className,
       )}

@@ -10,7 +10,7 @@ import { usePhaseEffect } from '../../hooks/usePhaseEffect';
 import { sfx } from '../../core/audio/sfx';
 
 function RoleCard({ view }: { view: ImpView | null }) {
-  if (!view) return <div className="py-6 text-white/70">Carregando seu papel…</div>;
+  if (!view) return <div className="py-6 text-white/80">Carregando seu papel…</div>;
   if (view.role === 'SPECTATOR') return <div className="py-6 text-white/75">Você está assistindo esta rodada.</div>;
   return (
     <div className="flex flex-col items-center gap-2 py-2 text-center">
@@ -19,12 +19,12 @@ function RoleCard({ view }: { view: ImpView | null }) {
         <>
           <Skull className="text-arcade-red" size={40} />
           <div className="font-display text-3xl font-bold text-arcade-red">VOCÊ É O IMPOSTOR!</div>
-          <div className="text-sm text-white/70">Blefe para descobrir a palavra.</div>
+          <div className="text-sm text-white/80">Blefe para descobrir a palavra.</div>
         </>
       ) : (
         <>
           <ShieldCheck className="text-arcade-green" size={36} />
-          <div className="text-xs uppercase tracking-widest text-white/70">Palavra secreta</div>
+          <div className="text-xs uppercase tracking-widest text-white/80">Palavra secreta</div>
           <div className="font-display text-4xl font-bold text-white">{view.secret_word}</div>
         </>
       )}
@@ -64,7 +64,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
             compact
             player={players.find((p) => p.id === pid)}
             highlight={isNow ? 'cyan' : undefined}
-            right={c ? <span className={cn('max-w-[50%] truncate font-display text-lg font-bold', c.skipped ? 'text-white/55' : 'text-white')}>{c.text}</span> : isNow ? <Badge color="cyan">falando…</Badge> : <span className="text-white/40">—</span>}
+            right={c ? <span className={cn('max-w-[50%] truncate font-display text-lg font-bold', c.skipped ? 'text-white/65' : 'text-white')}>{c.text}</span> : isNow ? <Badge color="cyan">falando…</Badge> : <span className="text-white/40">—</span>}
           />
         );
       })}
@@ -209,9 +209,9 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
       {s.phase === 'ROUND_SUMMARY' && (
         <Card className="flex flex-col items-center gap-3 text-center animate-pop" glow={s.escaped || s.guessCorrect ? 'red' : 'green'}>
           <Drama size={36} className="text-brand-pink" />
-          <div className="text-sm uppercase tracking-widest text-white/70">A palavra era</div>
+          <div className="text-sm uppercase tracking-widest text-white/80">A palavra era</div>
           <div className="font-display text-4xl font-bold">{s.secretWord}</div>
-          <div className="text-white/70">
+          <div className="text-white/80">
             {s.escaped
               ? 'O impostor escapou da votação! +15 para o impostor.'
               : s.guessCorrect

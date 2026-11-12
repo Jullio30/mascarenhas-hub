@@ -63,7 +63,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                   {s.votedIds.includes(p.id) && <Check size={16} className="absolute right-2 top-2 text-arcade-green" aria-label="já votou" />}
                   <Avatar id={p.avatar} size={36} />
                   <span className="w-full truncate text-sm font-semibold">{p.nickname}</span>
-                  {self && <span className="text-[10px] text-white/70">Você (não pode votar em si mesmo)</span>}
+                  {self && <span className="text-[10px] text-white/80">Você (não pode votar em si mesmo)</span>}
                 </button>
               );
             })}
@@ -110,7 +110,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                     <div className="flex items-center gap-2">
                       <Avatar id={p.avatar} size={28} />
                       <span className="flex-1 truncate text-sm font-semibold">{p.nickname}</span>
-                      <span className="text-xs text-white/70">votou em {nameOf(players, s.votes?.[p.id]) || '—'}</span>
+                      <span className="text-xs text-white/80">votou em {nameOf(players, s.votes?.[p.id]) || '—'}</span>
                       <Badge color={(s.pointsDelta[p.id] ?? 0) > 0 ? 'green' : 'gray'}>+{s.pointsDelta[p.id] ?? 0}</Badge>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
@@ -127,7 +127,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                   </div>
                 );
               })}
-            <p className="pt-1 text-center text-xs text-white/60">+1 por voto recebido • +2 para quem votou no(s) mais votado(s)</p>
+            <p className="pt-1 text-center text-xs text-white/70">+1 por voto recebido • +2 para quem votou no(s) mais votado(s)</p>
           </Card>
         </>
       )}

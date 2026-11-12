@@ -16,8 +16,8 @@ body,
 body {
   @apply bg-obsidian font-sans text-white antialiased;
   background-image:
-    radial-gradient(900px 600px at 0% -5%, rgba(236, 72, 153, 0.32), transparent 60%),
-    radial-gradient(900px 600px at 100% 0%, rgba(34, 211, 238, 0.24), transparent 60%),
+    radial-gradient(900px 600px at 0% -5%, rgba(236, 72, 153, 0.22), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(34, 211, 238, 0.16), transparent 60%),
     radial-gradient(800px 500px at 50% 50%, rgba(139, 92, 246, 0.22), transparent 70%),
     linear-gradient(180deg, #150e2c 0%, #1c0f3a 55%, #2a0f45 100%);
   background-attachment: fixed;
@@ -66,11 +66,12 @@ body::before {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 10px rgba(232, 121, 249, 0.55)) drop-shadow(0 3px 0 rgba(76, 29, 149, 0.9));
+  /* contorno sólido escuro em vez de brilho borrado: letras nítidas */
+  filter: drop-shadow(0 3px 0 #2e1065) drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
 }
 
 .neon-text-cyan {
-  text-shadow: 0 0 12px rgba(34, 211, 238, 0.7);
+  text-shadow: 0 0 6px rgba(34, 211, 238, 0.35);
 }
 
 h1, h2, h3, .font-display {
@@ -96,4 +97,38 @@ details > summary {
 }
 details > summary::-webkit-details-marker {
   display: none;
+}
+
+/* ---------- Efeito TV antiga (CRT) ---------- */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.13) 3px, rgba(0, 0, 0, 0) 4px),
+    radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, 0.42) 100%);
+  animation: crt-flicker 6s infinite steps(1);
+}
+.crt-overlay::after {
+  /* faixa de varredura descendo devagar */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 140px;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.035), transparent);
+  animation: crt-roll 7s linear infinite;
+}
+@keyframes crt-roll {
+  from { transform: translateY(-140px); }
+  to { transform: translateY(100vh); }
+}
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  47% { opacity: 0.92; }
+  48% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crt-overlay, .crt-overlay::after { animation: none; }
 }

@@ -1,4 +1,4 @@
-import { LogOut, Volume2, VolumeX, Wifi, WifiOff, Laptop } from 'lucide-react';
+import { LogOut, Volume2, VolumeX, Wifi, WifiOff, Laptop, Tv, TvMinimal } from 'lucide-react';
 import { useHubStore } from '../../store/useHubStore';
 import { sfx } from '../../core/audio/sfx';
 import { cn } from '../ui';
@@ -9,7 +9,7 @@ export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
       <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'h-9 w-9 shrink-0'} />
       <span className={cn('flex flex-wrap items-center gap-x-2 gap-y-2 font-arcade leading-none', size === 'lg' ? 'text-3xl sm:text-5xl' : 'text-lg sm:text-xl')}>
         <span className="arcade-title">Mascarenhas</span>
-        <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309,0_0_18px_rgba(245,158,11,.6)]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-sm sm:text-base')}>HUB</span>
+        <span className={cn('inline-block -rotate-3 rounded-lg bg-arcade-amber text-obsidian shadow-[0_4px_0_#b45309]', size === 'lg' ? 'px-2.5 py-1.5' : 'px-1.5 py-1 text-sm sm:text-base')}>HUB</span>
       </span>
     </div>
   );
@@ -20,7 +20,7 @@ export function SoundToggle() {
   const setPrefs = useHubStore((s) => s.setPrefs);
   return (
     <button
-      className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/70 hover:bg-white/10 hover:text-white"
+      className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/80 hover:bg-white/10 hover:text-white"
       onClick={() => {
         setPrefs({ sound: !sound });
         if (!sound) {
@@ -34,6 +34,31 @@ export function SoundToggle() {
       {sound ? <Volume2 size={20} /> : <VolumeX size={20} />}
     </button>
   );
+}
+
+export function CrtToggle() {
+  const crt = useHubStore((s) => s.prefs.crt);
+  const setPrefs = useHubStore((s) => s.setPrefs);
+  return (
+    <button
+      className={cn('grid h-11 w-11 place-items-center rounded-xl border hover:bg-white/10 hover:text-white', crt ? 'border-cyan-400/60 text-cyan-300' : 'border-line text-white/80')}
+      onClick={() => {
+        setPrefs({ crt: !crt });
+        sfx.click();
+      }}
+      aria-label={crt ? 'Desativar efeito TV antiga' : 'Ativar efeito TV antiga'}
+      title={crt ? 'Efeito TV antiga ligado' : 'Efeito TV antiga desligado'}
+    >
+      {crt ? <Tv size={20} /> : <TvMinimal size={20} />}
+    </button>
+  );
+}
+
+/** Camada da TV de tubo: não captura cliques e fica por cima de tudo. */
+export function CrtOverlay() {
+  const crt = useHubStore((s) => s.prefs.crt);
+  if (!crt) return null;
+  return <div className="crt-overlay" aria-hidden="true" />;
 }
 
 export function ConnectionBadge() {
@@ -59,14 +84,15 @@ export function ConnectionBadge() {
 
 export function Header({ onLeave }: { onLeave?: () => void }) {
   return (
-    <header className="sticky top-0 z-30 border-b-2 border-fuchsia-500/40 bg-obsidian/80 shadow-[0_0_24px_rgba(217,70,239,.25)] backdrop-blur">
+    <header className="sticky top-0 z-30 border-b-2 border-fuchsia-500/40 bg-obsidian/80 shadow-[0_0_14px_rgba(217,70,239,.15)] backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
         <Logo />
         <div className="flex items-center gap-2">
           <ConnectionBadge />
+          <CrtToggle />
           <SoundToggle />
           {onLeave && (
-            <button onClick={onLeave} className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/70 hover:bg-arcade-red/20 hover:text-white" aria-label="Sair da sala" title="Sair da sala">
+            <button onClick={onLeave} className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/80 hover:bg-arcade-red/20 hover:text-white" aria-label="Sair da sala" title="Sair da sala">
               <LogOut size={20} />
             </button>
           )}
@@ -77,5 +103,5 @@ export function Header({ onLeave }: { onLeave?: () => void }) {
 }
 
 export function Footer() {
-  return <footer className="py-6 text-center text-xs text-white/55">Mascarenhas Hub • party games para jogar junto</footer>;
+  return <footer className="py-6 text-center text-xs text-white/65">Mascarenhas Hub • party games para jogar junto</footer>;
 }

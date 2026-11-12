@@ -52,7 +52,7 @@ export default function AdivinheAMusica({ state: s, meId, players, presence, sen
         <div className="grid grid-cols-4 gap-2">
           {STAGE_POINTS.map((p, i) => (
             <div key={i} className={cn('rounded-2xl border p-2 text-center transition', i + 1 === s.stage ? 'border-arcade-cyan bg-arcade-cyan/15 shadow-neon-cyan' : i + 1 < s.stage ? 'border-line opacity-50' : 'border-line')}>
-              <div className="text-[10px] font-bold uppercase text-white/70">Estágio {i + 1}</div>
+              <div className="text-[10px] font-bold uppercase text-white/80">Estágio {i + 1}</div>
               <div className="font-display text-xl font-bold tabular-nums">{p} pts</div>
             </div>
           ))}
@@ -61,16 +61,16 @@ export default function AdivinheAMusica({ state: s, meId, players, presence, sen
       {s.phase === 'ROUND_ACTIVE' && (
         <div className="grid gap-1">
           <TimerBar endsAt={s.endsAt} totalMs={ROUND_MS} color="purple" />
-          <div className="text-center text-xs text-white/70">Próxima dica em {Math.ceil(stageRemaining / 1000)}s</div>
+          <div className="text-center text-xs text-white/80">Próxima dica em {Math.ceil(stageRemaining / 1000)}s</div>
         </div>
       )}
 
       <Card className="grid gap-3" glow={s.phase === 'ROUND_SUMMARY' ? 'green' : 'purple'}>
         {s.phase === 'ROUND_SUMMARY' && s.answer && (
           <div className="text-center animate-pop">
-            <div className="text-xs uppercase tracking-widest text-white/70">A música era</div>
+            <div className="text-xs uppercase tracking-widest text-white/80">A música era</div>
             <div className="font-display text-3xl font-bold text-arcade-green">{s.answer.title}</div>
-            <div className="text-white/70">{s.answer.artist}</div>
+            <div className="text-white/80">{s.answer.artist}</div>
           </div>
         )}
         {c.stage1 && (
@@ -146,7 +146,7 @@ export default function AdivinheAMusica({ state: s, meId, players, presence, sen
                   Palpite
                 </Button>
               </form>
-              <div className="text-center text-xs text-white/70">{left > 0 ? `${left} palpite(s) restante(s) neste estágio` : 'Sem palpites neste estágio — aguarde a próxima dica!'}</div>
+              <div className="text-center text-xs text-white/80">{left > 0 ? `${left} palpite(s) restante(s) neste estágio` : 'Sem palpites neste estágio — aguarde a próxima dica!'}</div>
             </>
           )}
         </Card>
@@ -181,7 +181,7 @@ export default function AdivinheAMusica({ state: s, meId, players, presence, sen
 function Clue({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-line bg-surface/70 p-4 animate-rise">
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-white/60">
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-white/70">
         Dica {n} • {title}
       </div>
       {children}

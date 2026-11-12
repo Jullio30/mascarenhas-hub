@@ -11,11 +11,11 @@ import { sfx } from '../../core/audio/sfx';
 import { usePrivateNotice } from '../_shared/notice';
 
 function WordCard({ view }: { view: InfView | null }) {
-  if (!view?.word) return <div className="py-6 text-white/70">Carregando sua palavra…</div>;
+  if (!view?.word) return <div className="py-6 text-white/80">Carregando sua palavra…</div>;
   return (
     <div className="flex flex-col items-center gap-2 py-2 text-center">
       <Badge color="green">Tema Geral: {view.category}</Badge>
-      <div className="text-xs uppercase tracking-widest text-white/70">Sua Palavra Secreta</div>
+      <div className="text-xs uppercase tracking-widest text-white/80">Sua Palavra Secreta</div>
       <div className="font-display text-4xl font-bold">{view.word}</div>
       <div className="max-w-xs text-xs text-amber-200/90">Aviso: você NÃO sabe se sua palavra é a da Maioria ou a do Infiltrado. Preste atenção nas dicas!</div>
     </div>
@@ -42,7 +42,7 @@ function VoteGrid({ ids, players, meId, disabled, onVote, chosen, color = 'red' 
             {p && <Avatar id={p.avatar} size={30} />}
             <span className="min-w-0">
               <span className="block truncate">{p?.nickname}</span>
-              {self && <span className="block text-[10px] text-white/70">Você</span>}
+              {self && <span className="block text-[10px] text-white/80">Você</span>}
             </span>
           </button>
         );
@@ -94,7 +94,7 @@ export default function Infiltrado({ state: s, view, meId, players, isHost, send
                 {cycles.map((c) => {
                   const cl = mine.find((x) => x.cycle === c);
                   return (
-                    <span key={c} className={cn('rounded-lg px-2 py-0.5 text-sm font-bold', cl?.skipped ? 'text-white/55' : 'bg-white/[.06]')}>
+                    <span key={c} className={cn('rounded-lg px-2 py-0.5 text-sm font-bold', cl?.skipped ? 'text-white/65' : 'bg-white/[.06]')}>
                       {cl ? cl.text : '—'}
                     </span>
                   );
@@ -290,15 +290,15 @@ export default function Infiltrado({ state: s, view, meId, players, isHost, send
         <Card className="flex flex-col items-center gap-4 text-center animate-pop" glow={s.winner === 'COMUNS' ? 'green' : 'red'}>
           <Trophy size={40} className={s.winner === 'COMUNS' ? 'text-emerald-300' : 'text-arcade-red'} />
           <div className="font-display text-3xl font-bold">{s.winner === 'COMUNS' ? 'Vitória dos Jogadores Comuns!' : 'Vitória dos Infiltrados!'}</div>
-          <div className="text-white/70">{s.winReason}</div>
+          <div className="text-white/80">{s.winReason}</div>
           {s.guessCorrect && s.guessText && <div className="text-sm text-red-200">Chute certeiro: “{s.guessText}”</div>}
           <div className="grid w-full gap-2 sm:grid-cols-2">
             <div className="rounded-2xl border border-arcade-green/40 bg-arcade-green/10 p-3">
-              <div className="text-xs uppercase tracking-widest text-white/70">Palavra da Maioria</div>
+              <div className="text-xs uppercase tracking-widest text-white/80">Palavra da Maioria</div>
               <div className="font-display text-2xl font-bold">{s.majorityWord}</div>
             </div>
             <div className="rounded-2xl border border-arcade-red/40 bg-arcade-red/10 p-3">
-              <div className="text-xs uppercase tracking-widest text-white/70">Palavra do Infiltrado</div>
+              <div className="text-xs uppercase tracking-widest text-white/80">Palavra do Infiltrado</div>
               <div className="font-display text-2xl font-bold">{s.undercoverWord}</div>
             </div>
           </div>

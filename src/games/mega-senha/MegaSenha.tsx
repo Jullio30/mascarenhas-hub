@@ -68,7 +68,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div key={label} className={cn('flex items-center gap-2 rounded-2xl border p-3', me ? 'border-brand-purple/60 bg-brand-purple/10' : 'border-line')}>
             {p && <Avatar id={p.avatar} size={36} ring={color} />}
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/70">{label}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/80">{label}</div>
               <div className="truncate font-bold">{me ? 'Você' : p?.nickname}</div>
             </div>
           </div>
@@ -104,18 +104,18 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div className="text-center">
             {isGiver && view?.secret_word ? (
               <>
-                <div className="text-xs uppercase tracking-widest text-white/70">A senha é</div>
+                <div className="text-xs uppercase tracking-widest text-white/80">A senha é</div>
                 <div className="font-display text-4xl font-bold tracking-wide text-violet-200">{view.secret_word.toUpperCase()}</div>
               </>
             ) : (
               <>
-                <div className="text-xs uppercase tracking-widest text-white/70">Senha secreta • {s.wordCategory}</div>
+                <div className="text-xs uppercase tracking-widest text-white/80">Senha secreta • {s.wordCategory}</div>
                 <div className="mt-1 flex flex-wrap justify-center gap-1.5">
                   {Array.from({ length: s.wordLength }).map((_, i) => (
                     <span key={i} className="h-9 w-7 rounded-lg border border-white/15 bg-white/5" />
                   ))}
                 </div>
-                <div className="mt-1 text-xs text-white/60">{s.wordLength} letras</div>
+                <div className="mt-1 text-xs text-white/70">{s.wordLength} letras</div>
               </>
             )}
           </div>
@@ -123,7 +123,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div className="flex flex-wrap justify-center gap-2">
             {s.clues.map((c, i) => (
               <div key={i} className="rounded-2xl border border-brand-purple/40 bg-brand-purple/10 px-4 py-2 text-center">
-                <div className="text-[10px] uppercase text-white/70">Dica {i + 1}</div>
+                <div className="text-[10px] uppercase text-white/80">Dica {i + 1}</div>
                 <div className="font-display text-xl font-bold">{c}</div>
                 {s.guesses[i] && <div className="text-xs text-arcade-red line-through">{s.guesses[i]}</div>}
               </div>
@@ -178,7 +178,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
       {s.phase === 'WORD_RESULT' && last && (
         <Card className="flex flex-col items-center gap-2 text-center animate-pop" glow={last.correct ? 'green' : 'red'}>
           <div className={cn('font-display text-4xl font-bold', last.correct ? 'text-arcade-green' : 'text-arcade-red')}>{last.correct ? `Acertou! +${last.points}` : 'Não foi dessa vez'}</div>
-          <div className="text-white/70">
+          <div className="text-white/80">
             A senha era <b className="text-white">{last.word}</b>
           </div>
         </Card>

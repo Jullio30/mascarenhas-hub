@@ -17,10 +17,10 @@ export default {
         arcade: ['Bungee', '"Bricolage Grotesque"', 'sans-serif'],
       },
       boxShadow: {
-        neon: '0 0 0 2px rgba(217,70,239,.75), 0 0 32px rgba(217,70,239,.45)',
-        'neon-cyan': '0 0 0 1px rgba(6,182,212,.6), 0 0 24px rgba(6,182,212,.35)',
-        'neon-red': '0 0 0 1px rgba(239,68,68,.7), 0 0 28px rgba(239,68,68,.45)',
-        'neon-green': '0 0 0 1px rgba(16,185,129,.6), 0 0 24px rgba(16,185,129,.35)',
+        neon: '0 0 0 2px rgba(217,70,239,.7), 0 0 18px rgba(217,70,239,.25)',
+        'neon-cyan': '0 0 0 1px rgba(6,182,212,.6), 0 0 16px rgba(6,182,212,.22)',
+        'neon-red': '0 0 0 1px rgba(239,68,68,.7), 0 0 18px rgba(239,68,68,.28)',
+        'neon-green': '0 0 0 1px rgba(16,185,129,.6), 0 0 16px rgba(16,185,129,.22)',
       },
       keyframes: {
         shake: {

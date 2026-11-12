@@ -10,6 +10,8 @@ export interface HubPrefs {
   avatar: string;
   sound: boolean;
   streamerMode: boolean;
+  /** Efeito de TV de tubo (linhas de varredura + vinheta). */
+  crt: boolean;
 }
 
 export type ConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error' | 'inactive';
@@ -30,11 +32,11 @@ export interface Reaction {
 function loadPrefs(): HubPrefs {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    if (raw) return { nickname: '', avatar: 'neon-fox', sound: true, streamerMode: false, ...JSON.parse(raw) };
+    if (raw) return { nickname: '', avatar: 'neon-fox', sound: true, streamerMode: false, crt: true, ...JSON.parse(raw) };
   } catch {
     /* ignore */
   }
-  return { nickname: '', avatar: 'neon-fox', sound: true, streamerMode: false };
+  return { nickname: '', avatar: 'neon-fox', sound: true, streamerMode: false, crt: true };
 }
 
 interface HubState {

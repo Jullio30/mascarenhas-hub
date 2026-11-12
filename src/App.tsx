@@ -5,7 +5,7 @@ import { session } from './core/session/sessionManager';
 import { isSupabaseConfigured } from './lib/supabase';
 import { normalizeRoomCode } from './core/realtime/roomChannel';
 import { sfx } from './core/audio/sfx';
-import { Footer, Header, Logo } from './components/layout/Header';
+import { Footer, Header, Logo, CrtOverlay } from './components/layout/Header';
 import { ReactionLayer, Toasts } from './components/layout/Overlays';
 import HomeScreen from './components/lobby/HomeScreen';
 import Lobby from './components/lobby/Lobby';
@@ -25,7 +25,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
         <div className="grid min-h-screen place-items-center p-6 text-center">
           <div>
             <Logo size="lg" />
-            <p className="mt-6 text-white/70">Algo deu errado: {this.state.error.message}</p>
+            <p className="mt-6 text-white/80">Algo deu errado: {this.state.error.message}</p>
             <Button className="mt-4" onClick={() => window.location.reload()}>
               Recarregar
             </Button>
@@ -97,9 +97,10 @@ export default function App() {
       </div>
       <Toasts />
       <ReactionLayer />
+      <CrtOverlay />
 
       <Modal open={connection === 'inactive'} dismissable={false} title="Sessão pausada por inatividade">
-        <p className="text-white/70">A sala ficou 30 minutos sem interação no lobby, então desconectamos para economizar conexões.</p>
+        <p className="text-white/80">A sala ficou 30 minutos sem interação no lobby, então desconectamos para economizar conexões.</p>
         <div className="mt-5 grid gap-2">
           <Button size="lg" onClick={() => void session.reconnect()} icon={<PlugZap />}>
             Clique para reconectar
@@ -111,7 +112,7 @@ export default function App() {
       </Modal>
 
       <Modal open={kicked} onClose={() => useHubStore.setState({ kicked: false })} title="Você saiu da sala">
-        <div className="flex items-center gap-3 text-white/70">
+        <div className="flex items-center gap-3 text-white/80">
           <UserX className="text-arcade-red" /> O anfitrião removeu você desta sala.
         </div>
         <Button className="mt-5 w-full" onClick={() => useHubStore.setState({ kicked: false })}>

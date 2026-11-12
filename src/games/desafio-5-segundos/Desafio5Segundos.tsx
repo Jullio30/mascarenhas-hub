@@ -47,7 +47,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
               Estou Pronto! Revelar Tema
             </Button>
           ) : (
-            <div className="text-white/70">O tema será revelado automaticamente ao fim do tempo.</div>
+            <div className="text-white/80">O tema será revelado automaticamente ao fim do tempo.</div>
           )}
           <div className="w-full">
             <TimerBar endsAt={s.endsAt} totalMs={PREP_MS} />
@@ -92,7 +92,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
           ) : (
             <p className="text-white/75">{isHot ? 'Os outros jogadores estão julgando seu desempenho…' : 'Voto registrado! Aguardando os demais…'}</p>
           )}
-          <div className="text-sm text-white/70">
+          <div className="text-sm text-white/80">
             {s.votedIds.length}/{s.voters.length} votos
           </div>
           <TimerBar endsAt={s.endsAt} totalMs={VALIDATION_MS} color="purple" />
@@ -121,7 +121,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
               )}
             </>
           )}
-          <div className="text-sm text-white/60">
+          <div className="text-sm text-white/70">
             <Hand className="mr-1 inline" size={14} />
             Próximo jogador em instantes…
           </div>
@@ -135,7 +135,7 @@ function AnswerList({ answers }: { answers: string[] }) {
   return (
     <div className="grid w-full gap-2 sm:grid-cols-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn('min-h-12 rounded-2xl border px-3 py-3 font-semibold', answers[i] ? 'border-arcade-cyan/50 bg-arcade-cyan/10' : 'border-line text-white/55')}>
+        <div key={i} className={cn('min-h-12 rounded-2xl border px-3 py-3 font-semibold', answers[i] ? 'border-arcade-cyan/50 bg-arcade-cyan/10' : 'border-line text-white/65')}>
           {answers[i] || `${i + 1}ª resposta`}
         </div>
       ))}

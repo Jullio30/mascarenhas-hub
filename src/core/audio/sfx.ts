@@ -53,10 +53,16 @@ export const sfx = {
   click() {
     tone(660, 0.04, { type: 'triangle', gain: 0.08 });
   },
+  /** Ficha de fliperama: "plim-pliiim" clássico (Si → Mi). */
+  coin() {
+    tone(988, 0.08, { type: 'square', gain: 0.09 });
+    tone(1319, 0.42, { type: 'square', gain: 0.09, delay: 0.075 });
+  },
+  /** Ganhou pontos: chuva de moedinhas. */
   success() {
-    tone(660, 0.12, { type: 'triangle' });
-    tone(880, 0.12, { type: 'triangle', delay: 0.1 });
-    tone(1320, 0.22, { type: 'triangle', delay: 0.2 });
+    sfx.coin();
+    tone(1568, 0.1, { type: 'square', gain: 0.06, delay: 0.32 });
+    tone(2093, 0.25, { type: 'square', gain: 0.06, delay: 0.4 });
   },
   error() {
     tone(220, 0.25, { type: 'sawtooth', gain: 0.1, slideTo: 140 });
@@ -74,6 +80,10 @@ export const sfx = {
     tone(880, 0.06, { type: 'sine', gain: 0.1, slideTo: 1400 });
   },
   win() {
-    [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.18, { type: 'triangle', delay: i * 0.12, gain: 0.16 }));
+    [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.18, { type: 'square', delay: i * 0.12, gain: 0.08 }));
+    [0, 1, 2, 3, 4].forEach((i) => {
+      tone(988, 0.06, { type: 'square', gain: 0.05, delay: 0.8 + i * 0.13 });
+      tone(1319, 0.16, { type: 'square', gain: 0.05, delay: 0.86 + i * 0.13 });
+    });
   },
 };

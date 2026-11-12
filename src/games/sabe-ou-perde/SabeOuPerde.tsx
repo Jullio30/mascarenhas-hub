@@ -53,7 +53,7 @@ function Board({ s, players }: { s: SopState; players: Player[] }) {
                 className={cn('relative flex aspect-square min-w-0 flex-col items-center justify-between rounded-xl border p-1 transition', highlight === n ? 'border-white shadow-neon' : 'border-line', t === 'NORMAL' ? 'bg-white/[.03]' : '')}
                 style={st.color ? { backgroundColor: `${st.color}22`, borderColor: highlight === n ? undefined : `${st.color}66` } : undefined}
               >
-                <span className="self-start text-[10px] font-bold leading-none text-white/70">{n}</span>
+                <span className="self-start text-[10px] font-bold leading-none text-white/80">{n}</span>
                 {Icon && <Icon size={16} style={{ color: st.color }} className="shrink-0" />}
                 <div className="flex flex-wrap justify-center -space-x-2">
                   {here.slice(0, 4).map((id) => {
@@ -206,7 +206,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
                   );
                 })}
               </div>
-              {!myTurn && s.phase === 'ANSWERING_QUESTION' && <p className="text-center text-xs text-white/60">Só {current} pode responder. Torça!</p>}
+              {!myTurn && s.phase === 'ANSWERING_QUESTION' && <p className="text-center text-xs text-white/70">Só {current} pode responder. Torça!</p>}
             </>
           )}
 
@@ -245,7 +245,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
             </div>
           )}
         </Card>
-        <p className="text-center text-xs text-white/60">Acerto: +100 pts + 20 por casa avançada • Errou: fica parado • Chegada: +500</p>
+        <p className="text-center text-xs text-white/70">Acerto: +100 pts + 20 por casa avançada • Errou: fica parado • Chegada: +500</p>
       </div>
     </div>
   );

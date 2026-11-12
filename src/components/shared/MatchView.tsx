@@ -45,7 +45,7 @@ export function MatchScoreboard() {
     <div className="grid gap-1.5">
       {sorted.map((p, i) => (
         <div key={p.id} className={cn('flex items-center gap-2 rounded-xl px-2 py-1.5', p.id === meId ? 'bg-brand-purple/15' : 'bg-white/[.03]')}>
-          <span className="w-6 text-center text-sm font-bold text-white/60">{i + 1}º</span>
+          <span className="w-6 text-center text-sm font-bold text-white/70">{i + 1}º</span>
           <Avatar id={p.avatar} size={28} dim={!presence[p.id]} />
           <span className="flex-1 truncate text-sm font-semibold">{p.nickname}</span>
           <PresenceDot status={presence[p.id] ?? 'disconnected'} />
@@ -65,7 +65,7 @@ function RoundLog() {
           {l.text}
         </div>
       ))}
-      {log.length === 0 && <div className="text-white/55">Nada por aqui ainda.</div>}
+      {log.length === 0 && <div className="text-white/65">Nada por aqui ainda.</div>}
     </div>
   );
 }
@@ -141,12 +141,12 @@ export default function MatchView() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate font-display font-bold">{plugin.title}</div>
-            <div className="text-xs text-white/70">
+            <div className="text-xs text-white/80">
               {g.roundLabel ?? `Rodada ${Math.min(g.round, g.totalRounds)} de ${g.totalRounds}`}
             </div>
           </div>
           {!hideTimer && <SyncTimer endsAt={snapshot.pause ? null : g.endsAt} className="text-2xl" />}
-          <button className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/70 hover:bg-white/10 lg:hidden" onClick={() => setDrawer(true)} aria-label="Abrir placar">
+          <button className="grid h-11 w-11 place-items-center rounded-xl border border-line text-white/80 hover:bg-white/10 lg:hidden" onClick={() => setDrawer(true)} aria-label="Abrir placar">
             <BarChart3 size={20} />
           </button>
         </div>

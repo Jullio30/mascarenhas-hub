@@ -58,7 +58,7 @@ export default function PodiumModal() {
                     {e.crown && <Crown className="text-amber-300 drop-shadow-[0_0_8px_#F59E0B]" />}
                     <Avatar id={p.avatar} size={rank === 1 ? 64 : 50} ring={rank === 1 ? '#F59E0B' : undefined} />
                     <div className={cn('mt-1 max-w-full truncate font-bold', e.playerId === meId && 'text-violet-300')}>{p.nickname}</div>
-                    <div className="font-display text-sm tabular-nums text-white/70">{e.score} pts</div>
+                    <div className="font-display text-sm tabular-nums text-white/80">{e.score} pts</div>
                   </div>
                 );
               })}
@@ -78,7 +78,7 @@ export default function PodiumModal() {
                 <div>
                   <div className="text-xs font-bold uppercase tracking-widest text-arcade-cyan">{h.title}</div>
                   <div className="font-bold">{p?.nickname}</div>
-                  <div className="text-xs text-white/70">{h.detail}</div>
+                  <div className="text-xs text-white/80">{h.detail}</div>
                 </div>
               </Card>
             );
@@ -91,7 +91,7 @@ export default function PodiumModal() {
           {podium.entries.map((e) => (
             <div key={e.playerId} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2">
               <span>
-                <b className="mr-2 text-white/60">{e.rank}º</b>
+                <b className="mr-2 text-white/70">{e.rank}º</b>
                 {nameOf(e.playerId)?.nickname}
                 {e.crown && ' 👑'}
               </span>

@@ -6,7 +6,7 @@ import { cn } from '../ui';
 /** Cronômetro compacto (cabeçalho) com tabular-nums. */
 export function SyncTimer({ endsAt, tenths, tickSound, className }: { endsAt: number | null | undefined; tenths?: boolean; tickSound?: boolean; className?: string }) {
   const rem = useSyncTimer(endsAt, { tickSound });
-  if (!endsAt) return <span className={cn('font-display tabular-nums text-white/55', className)}>--</span>;
+  if (!endsAt) return <span className={cn('font-display tabular-nums text-white/65', className)}>--</span>;
   const urgent = rem <= 3000;
   const text = tenths ? (rem / 1000).toFixed(1) : String(Math.ceil(rem / 1000));
   return <span className={cn('font-display font-bold tabular-nums transition-colors', urgent ? 'text-arcade-red' : 'text-arcade-cyan', className)}>{text}s</span>;
@@ -65,7 +65,7 @@ export function HoldToReveal({ children, label = 'Segure para ver seu papel' }: 
         <div className="flex flex-col items-center gap-2 text-white/75">
           <Eye size={32} />
           <span className="font-bold">{label}</span>
-          <span className="text-xs text-white/60">Solte para esconder</span>
+          <span className="text-xs text-white/70">Solte para esconder</span>
         </div>
       )}
     </button>
