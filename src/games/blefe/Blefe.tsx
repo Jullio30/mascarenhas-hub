@@ -41,11 +41,11 @@ function DramaticReveal({ s, players }: { s: BlefeState; players: Player[] }) {
         <span className="font-display text-xl font-bold">“{o.text}”</span>
         <Badge color="red">MENTIRA</Badge>
       </div>
-      <div className="mt-2 text-xs uppercase tracking-widest text-white/50">Enganados</div>
+      <div className="mt-2 text-xs uppercase tracking-widest text-white/70">Enganados</div>
       <Avatars ids={o.voters} players={players} />
       <div className="mt-2 text-sm">
         {o.isHouse ? (
-          <span className="text-white/60">Distrator da casa (ninguém pontua)</span>
+          <span className="text-white/75">Distrator da casa (ninguém pontua)</span>
         ) : (
           <span className="text-red-200">
             <Skull size={14} className="mr-1 inline" />
@@ -64,8 +64,8 @@ function DramaticReveal({ s, players }: { s: BlefeState; players: Player[] }) {
             <CheckCircle2 size={18} /> Resposta verdadeira
           </div>
           <div className="mt-1 font-display text-3xl font-bold text-white">{truth.text}</div>
-          <div className="mt-2 text-xs uppercase tracking-widest text-white/50">Acertaram (+{TRUTH_POINTS} cada)</div>
-          {truth.voters.length ? <Avatars ids={truth.voters} players={players} /> : <span className="text-sm text-white/60">Ninguém! A sala inteira foi enganada.</span>}
+          <div className="mt-2 text-xs uppercase tracking-widest text-white/70">Acertaram (+{TRUTH_POINTS} cada)</div>
+          {truth.voters.length ? <Avatars ids={truth.voters} players={players} /> : <span className="text-sm text-white/75">Ninguém! A sala inteira foi enganada.</span>}
           {s.factExplanation && <p className="mt-3 text-sm text-white/75">{s.factExplanation}</p>}
         </div>
       )}
@@ -141,12 +141,12 @@ export default function Blefe({ state: s, view, meId, players, config, send }: G
                   Me Salva!
                 </Button>
               </div>
-              <span className="text-right text-xs text-white/40">{text.length}/60</span>
+              <span className="text-right text-xs text-white/60">{text.length}/60</span>
             </form>
           )}
           {submitted && view?.myBluff && (
             <div className="rounded-2xl border border-[#A855F7]/40 bg-[#A855F7]/10 p-3 text-center">
-              <div className="text-xs uppercase tracking-widest text-white/50">Sua mentira</div>
+              <div className="text-xs uppercase tracking-widest text-white/70">Sua mentira</div>
               <div className="font-display text-xl font-bold">“{view.myBluff}”</div>
             </div>
           )}
@@ -173,12 +173,12 @@ export default function Blefe({ state: s, view, meId, players, config, send }: G
                   )}
                 >
                   <span>{o.text}</span>
-                  {mine && <span className="shrink-0 text-xs font-semibold text-white/60">Sua Mentira (Não votável)</span>}
+                  {mine && <span className="shrink-0 text-xs font-semibold text-white/75">Sua Mentira (Não votável)</span>}
                 </button>
               );
             })}
           </div>
-          {s.didNotSubmit.length > 0 && <p className="text-center text-xs text-white/40">Não enviaram blefe: {s.didNotSubmit.map((id) => nameOf(players, id)).join(', ')}</p>}
+          {s.didNotSubmit.length > 0 && <p className="text-center text-xs text-white/60">Não enviaram blefe: {s.didNotSubmit.map((id) => nameOf(players, id)).join(', ')}</p>}
         </Card>
       )}
 
@@ -206,7 +206,7 @@ export default function Blefe({ state: s, view, meId, players, config, send }: G
                 </div>
               ))}
           </div>
-          <p className="text-center text-xs text-white/40">
+          <p className="text-center text-xs text-white/60">
             <PenLine size={12} className="mr-1 inline" />
             Verdade +{TRUTH_POINTS} • cada vítima da sua mentira +{FOOL_POINTS}
           </p>

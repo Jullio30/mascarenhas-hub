@@ -10,8 +10,8 @@ import { usePhaseEffect } from '../../hooks/usePhaseEffect';
 import { sfx } from '../../core/audio/sfx';
 
 function RoleCard({ view }: { view: ImpView | null }) {
-  if (!view) return <div className="py-6 text-white/50">Carregando seu papel…</div>;
-  if (view.role === 'SPECTATOR') return <div className="py-6 text-white/60">Você está assistindo esta rodada.</div>;
+  if (!view) return <div className="py-6 text-white/70">Carregando seu papel…</div>;
+  if (view.role === 'SPECTATOR') return <div className="py-6 text-white/75">Você está assistindo esta rodada.</div>;
   return (
     <div className="flex flex-col items-center gap-2 py-2 text-center">
       <Badge color="cyan">Categoria: {view.category}</Badge>
@@ -24,7 +24,7 @@ function RoleCard({ view }: { view: ImpView | null }) {
       ) : (
         <>
           <ShieldCheck className="text-arcade-green" size={36} />
-          <div className="text-xs uppercase tracking-widest text-white/50">Palavra secreta</div>
+          <div className="text-xs uppercase tracking-widest text-white/70">Palavra secreta</div>
           <div className="font-display text-4xl font-bold text-white">{view.secret_word}</div>
         </>
       )}
@@ -64,7 +64,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
             compact
             player={players.find((p) => p.id === pid)}
             highlight={isNow ? 'cyan' : undefined}
-            right={c ? <span className={cn('max-w-[50%] truncate font-display text-lg font-bold', c.skipped ? 'text-white/30' : 'text-white')}>{c.text}</span> : isNow ? <Badge color="cyan">falando…</Badge> : <span className="text-white/20">—</span>}
+            right={c ? <span className={cn('max-w-[50%] truncate font-display text-lg font-bold', c.skipped ? 'text-white/55' : 'text-white')}>{c.text}</span> : isNow ? <Badge color="cyan">falando…</Badge> : <span className="text-white/40">—</span>}
           />
         );
       })}
@@ -112,7 +112,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
           <TimerBar endsAt={s.endsAt} totalMs={CLUE_MS} />
           {ClueList}
           {inRound && (
-            <details className="rounded-2xl border border-line p-3 text-sm text-white/60">
+            <details className="rounded-2xl border border-line p-3 text-sm text-white/75">
               <summary className="cursor-pointer select-none font-semibold">Relembrar meu papel</summary>
               <div className="mt-3">
                 <HoldToReveal label="Segure para relembrar">
@@ -131,7 +131,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
           <div className="grid gap-2">
             {s.clues.map((c) => (
               <div key={c.pid} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2 text-sm">
-                <span className="text-white/60">{nameOf(players, c.pid)}</span>
+                <span className="text-white/75">{nameOf(players, c.pid)}</span>
                 <span className="font-display font-bold">{c.text}</span>
               </div>
             ))}
@@ -156,7 +156,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
                 })}
             </div>
           ) : (
-            <p className="text-center text-white/60">
+            <p className="text-center text-white/75">
               <Vote className="mr-1 inline" size={16} />
               {inRound ? 'Voto registrado em segredo. Aguardando os demais…' : 'Você está assistindo.'}
             </p>
@@ -209,7 +209,7 @@ export default function Impostor({ state: s, view, meId, players, send }: GameMa
       {s.phase === 'ROUND_SUMMARY' && (
         <Card className="flex flex-col items-center gap-3 text-center animate-pop" glow={s.escaped || s.guessCorrect ? 'red' : 'green'}>
           <Drama size={36} className="text-brand-pink" />
-          <div className="text-sm uppercase tracking-widest text-white/50">A palavra era</div>
+          <div className="text-sm uppercase tracking-widest text-white/70">A palavra era</div>
           <div className="font-display text-4xl font-bold">{s.secretWord}</div>
           <div className="text-white/70">
             {s.escaped

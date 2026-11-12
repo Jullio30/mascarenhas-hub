@@ -68,7 +68,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div key={label} className={cn('flex items-center gap-2 rounded-2xl border p-3', me ? 'border-brand-purple/60 bg-brand-purple/10' : 'border-line')}>
             {p && <Avatar id={p.avatar} size={36} ring={color} />}
             <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/50">{label}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/70">{label}</div>
               <div className="truncate font-bold">{me ? 'Você' : p?.nickname}</div>
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Badge color="amber">Palavra {s.wordIndex + 1}/{s.wordsPerTurn}</Badge>
             <Badge color="green">Valendo {pts} pts • dica {s.attempt}/3</Badge>
-            <span className="text-sm text-white/60">
+            <span className="text-sm text-white/75">
               Turno: <SyncTimer endsAt={s.turnEndsAt} />
             </span>
           </div>
@@ -104,18 +104,18 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div className="text-center">
             {isGiver && view?.secret_word ? (
               <>
-                <div className="text-xs uppercase tracking-widest text-white/50">A senha é</div>
+                <div className="text-xs uppercase tracking-widest text-white/70">A senha é</div>
                 <div className="font-display text-4xl font-bold tracking-wide text-violet-200">{view.secret_word.toUpperCase()}</div>
               </>
             ) : (
               <>
-                <div className="text-xs uppercase tracking-widest text-white/50">Senha secreta • {s.wordCategory}</div>
+                <div className="text-xs uppercase tracking-widest text-white/70">Senha secreta • {s.wordCategory}</div>
                 <div className="mt-1 flex flex-wrap justify-center gap-1.5">
                   {Array.from({ length: s.wordLength }).map((_, i) => (
                     <span key={i} className="h-9 w-7 rounded-lg border border-white/15 bg-white/5" />
                   ))}
                 </div>
-                <div className="mt-1 text-xs text-white/40">{s.wordLength} letras</div>
+                <div className="mt-1 text-xs text-white/60">{s.wordLength} letras</div>
               </>
             )}
           </div>
@@ -123,7 +123,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
           <div className="flex flex-wrap justify-center gap-2">
             {s.clues.map((c, i) => (
               <div key={i} className="rounded-2xl border border-brand-purple/40 bg-brand-purple/10 px-4 py-2 text-center">
-                <div className="text-[10px] uppercase text-white/50">Dica {i + 1}</div>
+                <div className="text-[10px] uppercase text-white/70">Dica {i + 1}</div>
                 <div className="font-display text-xl font-bold">{c}</div>
                 {s.guesses[i] && <div className="text-xs text-arcade-red line-through">{s.guesses[i]}</div>}
               </div>
@@ -155,7 +155,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
               )}
             </>
           )}
-          {s.phase === 'CLUE' && !isGiver && <p className="text-center text-white/60">{nameOf(players, s.giverId)} está pensando na dica…</p>}
+          {s.phase === 'CLUE' && !isGiver && <p className="text-center text-white/75">{nameOf(players, s.giverId)} está pensando na dica…</p>}
 
           {s.phase === 'GUESS' && isGuesser && (
             <form
@@ -171,7 +171,7 @@ export default function MegaSenha({ state: s, view, meId, players, send }: GameM
               </Button>
             </form>
           )}
-          {s.phase === 'GUESS' && !isGuesser && <p className="text-center text-white/60">{nameOf(players, s.guesserId)} está tentando adivinhar…</p>}
+          {s.phase === 'GUESS' && !isGuesser && <p className="text-center text-white/75">{nameOf(players, s.guesserId)} está tentando adivinhar…</p>}
         </Card>
       )}
 

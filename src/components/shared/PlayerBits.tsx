@@ -51,14 +51,14 @@ export function PlayerChip({
   if (!player) return null;
   const ring = { cyan: 'border-arcade-cyan/70 bg-arcade-cyan/10', red: 'border-arcade-red/70 bg-arcade-red/10', green: 'border-arcade-green/70 bg-arcade-green/10', purple: 'border-brand-purple/70 bg-brand-purple/10', amber: 'border-arcade-amber/70 bg-arcade-amber/10' };
   return (
-    <div className={cn('flex items-center gap-3 rounded-2xl border px-3 py-2 transition', highlight ? ring[highlight] : 'border-line bg-white/[.02]', compact && 'py-1.5')}>
+    <div className={cn('flex items-center gap-3 rounded-2xl border px-3 py-2 transition', highlight ? ring[highlight] : 'border-line bg-surface/70', compact && 'py-1.5')}>
       <Avatar id={player.avatar} size={compact ? 30 : 38} dim={status === 'disconnected'} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{player.nickname}</span>
           {status && <PresenceDot status={status} />}
         </div>
-        {sub && <div className="truncate text-xs text-white/50">{sub}</div>}
+        {sub && <div className="truncate text-xs text-white/70">{sub}</div>}
       </div>
       {right}
     </div>

@@ -53,7 +53,7 @@ function Board({ s, players }: { s: SopState; players: Player[] }) {
                 className={cn('relative flex aspect-square min-w-0 flex-col items-center justify-between rounded-xl border p-1 transition', highlight === n ? 'border-white shadow-neon' : 'border-line', t === 'NORMAL' ? 'bg-white/[.03]' : '')}
                 style={st.color ? { backgroundColor: `${st.color}22`, borderColor: highlight === n ? undefined : `${st.color}66` } : undefined}
               >
-                <span className="self-start text-[10px] font-bold leading-none text-white/50">{n}</span>
+                <span className="self-start text-[10px] font-bold leading-none text-white/70">{n}</span>
                 {Icon && <Icon size={16} style={{ color: st.color }} className="shrink-0" />}
                 <div className="flex flex-wrap justify-center -space-x-2">
                   {here.slice(0, 4).map((id) => {
@@ -129,7 +129,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
             const p = players.find((x) => x.id === id);
             const t = s.tokens[id];
             return (
-              <div key={id} className={cn('flex items-center gap-2 rounded-xl px-2 py-1 text-sm', id === s.currentId ? 'bg-arcade-cyan/10' : 'bg-white/[.02]')}>
+              <div key={id} className={cn('flex items-center gap-2 rounded-xl px-2 py-1 text-sm', id === s.currentId ? 'bg-arcade-cyan/10' : 'bg-surface/70')}>
                 {p && <Avatar id={p.avatar} size={22} />}
                 <span className="flex-1 truncate font-semibold">{p?.nickname}</span>
                 {t.hasShield && <span title="Escudo de Proteção">🛡️</span>}
@@ -164,7 +164,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
                   Lançar Dado
                 </Button>
               ) : (
-                <p className="text-center text-white/60">{current} vai lançar o dado… (automático em 15s)</p>
+                <p className="text-center text-white/75">{current} vai lançar o dado… (automático em 15s)</p>
               )}
             </>
           )}
@@ -206,7 +206,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
                   );
                 })}
               </div>
-              {!myTurn && s.phase === 'ANSWERING_QUESTION' && <p className="text-center text-xs text-white/40">Só {current} pode responder. Torça!</p>}
+              {!myTurn && s.phase === 'ANSWERING_QUESTION' && <p className="text-center text-xs text-white/60">Só {current} pode responder. Torça!</p>}
             </>
           )}
 
@@ -240,12 +240,12 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
             <div className="flex flex-col items-center gap-2 text-center animate-pop">
               <Trophy size={44} className="text-amber-300" />
               <div className="font-display text-2xl font-bold">{s.banner}</div>
-              {s.effect && <div className="text-sm text-white/60">{s.effect.text}</div>}
+              {s.effect && <div className="text-sm text-white/75">{s.effect.text}</div>}
               <TimerBar endsAt={s.endsAt} totalMs={GAME_OVER_MS} />
             </div>
           )}
         </Card>
-        <p className="text-center text-xs text-white/40">Acerto: +100 pts + 20 por casa avançada • Errou: fica parado • Chegada: +500</p>
+        <p className="text-center text-xs text-white/60">Acerto: +100 pts + 20 por casa avançada • Errou: fica parado • Chegada: +500</p>
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
 
       {s.phase === 'SECRET_VOTING' && (
         <Card className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-sm text-white/60">
+          <div className="flex items-center justify-between text-sm text-white/75">
             <span>{voted ? 'Voto secreto registrado!' : inRound ? 'Toque em quem você acha mais provável' : 'Você está assistindo'}</span>
             <Badge color="pink">
               {s.votedIds.length}/{s.participants.length} votaram
@@ -63,7 +63,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                   {s.votedIds.includes(p.id) && <Check size={16} className="absolute right-2 top-2 text-arcade-green" aria-label="já votou" />}
                   <Avatar id={p.avatar} size={36} />
                   <span className="w-full truncate text-sm font-semibold">{p.nickname}</span>
-                  {self && <span className="text-[10px] text-white/50">Você (não pode votar em si mesmo)</span>}
+                  {self && <span className="text-[10px] text-white/70">Você (não pode votar em si mesmo)</span>}
                 </button>
               );
             })}
@@ -92,7 +92,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                 })}
               </div>
             ) : (
-              <div className="text-white/60">Ninguém votou nesta rodada.</div>
+              <div className="text-white/75">Ninguém votou nesta rodada.</div>
             )}
             <TimerBar endsAt={s.endsAt} totalMs={REVEAL_MS} color="purple" />
           </Card>
@@ -106,11 +106,11 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                   .filter(([, t]) => t === p.id)
                   .map(([v]) => players.find((x) => x.id === v));
                 return (
-                  <div key={p.id} className="animate-rise rounded-2xl border border-line bg-white/[.02] p-2" style={{ animationDelay: `${i * 90}ms` }}>
+                  <div key={p.id} className="animate-rise rounded-2xl border border-line bg-surface/70 p-2" style={{ animationDelay: `${i * 90}ms` }}>
                     <div className="flex items-center gap-2">
                       <Avatar id={p.avatar} size={28} />
                       <span className="flex-1 truncate text-sm font-semibold">{p.nickname}</span>
-                      <span className="text-xs text-white/50">votou em {nameOf(players, s.votes?.[p.id]) || '—'}</span>
+                      <span className="text-xs text-white/70">votou em {nameOf(players, s.votes?.[p.id]) || '—'}</span>
                       <Badge color={(s.pointsDelta[p.id] ?? 0) > 0 ? 'green' : 'gray'}>+{s.pointsDelta[p.id] ?? 0}</Badge>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
@@ -127,7 +127,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
                   </div>
                 );
               })}
-            <p className="pt-1 text-center text-xs text-white/40">+1 por voto recebido • +2 para quem votou no(s) mais votado(s)</p>
+            <p className="pt-1 text-center text-xs text-white/60">+1 por voto recebido • +2 para quem votou no(s) mais votado(s)</p>
           </Card>
         </>
       )}

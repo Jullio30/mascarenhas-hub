@@ -84,12 +84,12 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
                 locked && 'opacity-80',
               )}
             >
-              <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-white/50">{i + 1}º</span>
+              <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-white/70">{i + 1}º</span>
               <button
                 type="button"
                 aria-label="Arrastar"
                 disabled={!canPlay}
-                className="grid h-10 w-8 shrink-0 cursor-grab place-items-center rounded-lg text-white/40 hover:text-white disabled:cursor-default"
+                className="grid h-10 w-8 shrink-0 cursor-grab place-items-center rounded-lg text-white/60 hover:text-white disabled:cursor-default"
                 style={{ touchAction: 'none' }}
                 onPointerDown={(e) => {
                   if (!canPlay) return;
@@ -104,7 +104,7 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
                 {el.imageUrl && <img src={el.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg bg-white/5 object-contain" loading="lazy" />}
                 <span className="min-w-0">
                   <span className="block font-semibold leading-tight">{el.label}</span>
-                  {isSel ? <span className="block text-[11px] text-cyan-300">Selecionado — toque em outro item para trocar</span> : el.subtitle && <span className="block truncate text-xs text-white/45">{el.subtitle}</span>}
+                  {isSel ? <span className="block text-[11px] text-cyan-300">Selecionado — toque em outro item para trocar</span> : el.subtitle && <span className="block truncate text-xs text-white/65">{el.subtitle}</span>}
                 </span>
               </button>
               <div className="flex shrink-0 flex-col">
@@ -136,7 +136,7 @@ function SortBoard({ s, view, meId, send, totalMs }: { s: OcState; view: OcView 
           {locked ? 'Ordem confirmada' : 'Confirmar Ordem'}
         </Button>
       )}
-      <div className="text-center text-xs text-white/40">
+      <div className="text-center text-xs text-white/60">
         {s.lockedIds.length}/{s.participants.length} confirmaram • sem confirmar, vale a ordem que estiver na sua tela
       </div>
     </Card>
@@ -166,7 +166,7 @@ function Reveal({ s, players, meId }: { s: OcState; players: Player[]; meId: str
           ))}
         </div>
         {s.explanation && <p className="text-sm text-white/70">{s.explanation}</p>}
-        {s.source && <p className="text-xs text-white/40">Fonte: {s.source}</p>}
+        {s.source && <p className="text-xs text-white/60">Fonte: {s.source}</p>}
       </Card>
 
       {mine && (
@@ -179,7 +179,7 @@ function Reveal({ s, players, meId }: { s: OcState; players: Player[]; meId: str
           </div>
           {mine.order.map((id, i) => (
             <div key={id} className="flex items-center gap-2 rounded-xl bg-white/[.03] px-2 py-1.5 text-sm">
-              <span className="w-7 text-center font-bold text-white/50">{i + 1}º</span>
+              <span className="w-7 text-center font-bold text-white/70">{i + 1}º</span>
               <span className="min-w-0 flex-1 truncate">{byId[id]?.label}</span>
               {badge(mine.points[id] ?? 0)}
             </div>
@@ -195,7 +195,7 @@ function Reveal({ s, players, meId }: { s: OcState; players: Player[]; meId: str
             <div key={pid} className="flex items-center gap-2 rounded-xl bg-white/[.03] px-2 py-1.5 text-sm">
               {p && <Avatar id={p.avatar} size={24} />}
               <span className="flex-1 truncate font-semibold">{p?.nickname ?? '—'}</span>
-              <span className="text-xs text-white/40">{Object.values(r.points).filter((x) => x === 100).length} exatos</span>
+              <span className="text-xs text-white/60">{Object.values(r.points).filter((x) => x === 100).length} exatos</span>
               <span className="w-14 text-right font-display font-bold tabular-nums">+{r.total}</span>
             </div>
           );

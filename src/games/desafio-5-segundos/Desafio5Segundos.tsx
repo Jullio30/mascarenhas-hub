@@ -47,7 +47,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
               Estou Pronto! Revelar Tema
             </Button>
           ) : (
-            <div className="text-white/50">O tema será revelado automaticamente ao fim do tempo.</div>
+            <div className="text-white/70">O tema será revelado automaticamente ao fim do tempo.</div>
           )}
           <div className="w-full">
             <TimerBar endsAt={s.endsAt} totalMs={PREP_MS} />
@@ -67,7 +67,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
           )}
           {isHot && s.answerMode === 'typing' && <TypingAnswers answers={s.answers} send={send} />}
           {!isHot && s.answerMode === 'typing' && <AnswerList answers={s.answers} />}
-          {!isHot && s.answerMode === 'voice' && <p className="text-white/60">Ouça com atenção: você vai julgar as respostas!</p>}
+          {!isHot && s.answerMode === 'voice' && <p className="text-white/75">Ouça com atenção: você vai julgar as respostas!</p>}
         </Card>
       )}
 
@@ -90,9 +90,9 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
               </Button>
             </div>
           ) : (
-            <p className="text-white/60">{isHot ? 'Os outros jogadores estão julgando seu desempenho…' : 'Voto registrado! Aguardando os demais…'}</p>
+            <p className="text-white/75">{isHot ? 'Os outros jogadores estão julgando seu desempenho…' : 'Voto registrado! Aguardando os demais…'}</p>
           )}
-          <div className="text-sm text-white/50">
+          <div className="text-sm text-white/70">
             {s.votedIds.length}/{s.voters.length} votos
           </div>
           <TimerBar endsAt={s.endsAt} totalMs={VALIDATION_MS} color="purple" />
@@ -109,7 +109,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
                 {s.verdict ? VERDICT_LABEL[s.verdict] : ''}
               </div>
               <div className="text-xl font-bold">+{s.points} pontos {s.bonus && <Badge color="amber">⚡ bônus velocidade</Badge>}</div>
-              {s.prompt && <div className="text-white/60">{s.prompt.text}</div>}
+              {s.prompt && <div className="text-white/75">{s.prompt.text}</div>}
               {s.votes && Object.keys(s.votes).length > 0 && (
                 <div className="flex flex-wrap justify-center gap-2">
                   {Object.entries(s.votes).map(([pid, v]) => (
@@ -121,7 +121,7 @@ export default function Desafio5Segundos({ state: s, meId, players, send }: Game
               )}
             </>
           )}
-          <div className="text-sm text-white/40">
+          <div className="text-sm text-white/60">
             <Hand className="mr-1 inline" size={14} />
             Próximo jogador em instantes…
           </div>
@@ -135,7 +135,7 @@ function AnswerList({ answers }: { answers: string[] }) {
   return (
     <div className="grid w-full gap-2 sm:grid-cols-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className={cn('min-h-12 rounded-2xl border px-3 py-3 font-semibold', answers[i] ? 'border-arcade-cyan/50 bg-arcade-cyan/10' : 'border-line text-white/30')}>
+        <div key={i} className={cn('min-h-12 rounded-2xl border px-3 py-3 font-semibold', answers[i] ? 'border-arcade-cyan/50 bg-arcade-cyan/10' : 'border-line text-white/55')}>
           {answers[i] || `${i + 1}ª resposta`}
         </div>
       ))}

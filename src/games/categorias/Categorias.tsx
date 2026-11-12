@@ -14,7 +14,7 @@ function Hearts({ n }: { n: number }) {
   return (
     <span className="inline-flex gap-0.5">
       {[0, 1].map((i) => (
-        <Heart key={i} size={14} className={i < n ? 'fill-arcade-red text-arcade-red' : 'text-white/20'} />
+        <Heart key={i} size={14} className={i < n ? 'fill-arcade-red text-arcade-red' : 'text-white/40'} />
       ))}
     </span>
   );
@@ -58,7 +58,7 @@ export default function Categorias({ state: s, meId, players, send }: GameMatchP
         <div className="font-display text-3xl font-bold sm:text-4xl">{s.category}</div>
         {s.letters && (
           <div className="mt-2 flex flex-wrap justify-center gap-1">
-            <span className="text-sm text-white/60">Começando com:</span>
+            <span className="text-sm text-white/75">Começando com:</span>
             {s.letters.map((l) => (
               <Badge key={l} color="amber">
                 {l}
@@ -75,7 +75,7 @@ export default function Categorias({ state: s, meId, players, send }: GameMatchP
           <div className="flex items-center justify-center gap-3">
             <Bomb size={34} className={cn(urgent ? 'text-arcade-red' : 'text-arcade-amber')} />
             <div className="text-center">
-              <div className="text-xs uppercase tracking-widest text-white/50">A bomba está com</div>
+              <div className="text-xs uppercase tracking-widest text-white/70">A bomba está com</div>
               <div className="font-display text-2xl font-bold">{isActive ? 'VOCÊ!' : nameOf(players, s.activeId)}</div>
             </div>
             <div className={cn('font-display text-4xl font-bold tabular-nums', urgent ? 'text-arcade-red' : 'text-white')}>{(remaining / 1000).toFixed(1)}</div>
@@ -99,7 +99,7 @@ export default function Categorias({ state: s, meId, players, send }: GameMatchP
               {errMsg && <p className="text-center text-sm font-semibold text-arcade-red">{errMsg}</p>}
             </>
           )}
-          <div className="text-center text-xs text-white/40">Volta {Math.min(s.lap + 1, 3)} de 3 {s.lap >= 2 && '• turbo: 7s por turno!'}</div>
+          <div className="text-center text-xs text-white/60">Volta {Math.min(s.lap + 1, 3)} de 3 {s.lap >= 2 && '• turbo: 7s por turno!'}</div>
         </Card>
       )}
 
@@ -107,7 +107,7 @@ export default function Categorias({ state: s, meId, players, send }: GameMatchP
         <Card className="flex flex-col items-center gap-3 text-center animate-pop" glow="green">
           <PhaseTitle kicker="Fim da rodada" title="Sobreviventes" />
           <div className="flex flex-wrap justify-center gap-2">
-            {Object.keys(s.bonuses).length === 0 && <span className="text-white/60">Ninguém sobreviveu!</span>}
+            {Object.keys(s.bonuses).length === 0 && <span className="text-white/75">Ninguém sobreviveu!</span>}
             {Object.entries(s.bonuses).map(([id, b]) => (
               <Badge key={id} color="green">
                 {nameOf(players, id)} +{b} bônus
@@ -135,14 +135,14 @@ export default function Categorias({ state: s, meId, players, send }: GameMatchP
       </div>
 
       <Card className="grid gap-2">
-        <div className="text-xs font-bold uppercase tracking-[.18em] text-white/50">Palavras da rodada ({s.used.filter((u) => !u.annulled).length})</div>
-        {s.used.length === 0 && <div className="text-sm text-white/40">Nenhuma palavra ainda.</div>}
+        <div className="text-xs font-bold uppercase tracking-[.18em] text-white/70">Palavras da rodada ({s.used.filter((u) => !u.annulled).length})</div>
+        {s.used.length === 0 && <div className="text-sm text-white/60">Nenhuma palavra ainda.</div>}
         {s.used.map((u) => {
           const canContest = s.phase === 'BOMB_TURN' && u.pid !== meId && !u.annulled && now < u.contestUntil && !u.contests.includes(meId) && s.participants.includes(meId);
           return (
             <div key={u.id} className="flex items-center gap-2 rounded-xl bg-white/[.03] px-3 py-2 animate-rise">
               <span className={cn('flex-1 font-display text-lg font-bold', u.annulled && 'text-arcade-red line-through')}>{u.word}</span>
-              <span className="text-xs text-white/50">{nameOf(players, u.pid)}</span>
+              <span className="text-xs text-white/70">{nameOf(players, u.pid)}</span>
               {u.contests.length > 0 && !u.annulled && <Badge color="amber">{u.contests.length} contest.</Badge>}
               {u.annulled && <Badge color="red">anulada</Badge>}
               {canContest && (

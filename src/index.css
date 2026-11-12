@@ -16,9 +16,9 @@ body,
 body {
   @apply bg-obsidian font-sans text-white antialiased;
   background-image:
-    radial-gradient(1200px 600px at 10% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, rgba(236, 72, 153, 0.12), transparent 60%),
-    radial-gradient(800px 500px at 50% 120%, rgba(6, 182, 212, 0.1), transparent 60%);
+    radial-gradient(1100px 650px at 0% -10%, rgba(139, 92, 246, 0.28), transparent 60%),
+    radial-gradient(900px 550px at 105% 0%, rgba(236, 72, 153, 0.18), transparent 60%),
+    radial-gradient(900px 600px at 50% 115%, rgba(6, 182, 212, 0.14), transparent 60%);
   background-attachment: fixed;
   overscroll-behavior-y: none;
 }
@@ -35,7 +35,15 @@ textarea {
 }
 
 .brand-text {
-  @apply bg-gradient-to-r from-brand-purple via-fuchsia-400 to-brand-pink bg-clip-text text-transparent;
+  background-image: linear-gradient(95deg, #c7b8ff 0%, #f5a8f0 50%, #ffc2dc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 14px rgba(236, 72, 153, 0.35));
+}
+
+h1, h2, h3, .font-display {
+  letter-spacing: -0.01em;
 }
 
 .grid-bg {

@@ -6,7 +6,7 @@ import { cn } from '../ui';
 /** Cronômetro compacto (cabeçalho) com tabular-nums. */
 export function SyncTimer({ endsAt, tenths, tickSound, className }: { endsAt: number | null | undefined; tenths?: boolean; tickSound?: boolean; className?: string }) {
   const rem = useSyncTimer(endsAt, { tickSound });
-  if (!endsAt) return <span className={cn('font-display tabular-nums text-white/30', className)}>--</span>;
+  if (!endsAt) return <span className={cn('font-display tabular-nums text-white/55', className)}>--</span>;
   const urgent = rem <= 3000;
   const text = tenths ? (rem / 1000).toFixed(1) : String(Math.ceil(rem / 1000));
   return <span className={cn('font-display font-bold tabular-nums transition-colors', urgent ? 'text-arcade-red' : 'text-arcade-cyan', className)}>{text}s</span>;
@@ -62,10 +62,10 @@ export function HoldToReveal({ children, label = 'Segure para ver seu papel' }: 
       {held ? (
         <div className="animate-flip">{children}</div>
       ) : (
-        <div className="flex flex-col items-center gap-2 text-white/60">
+        <div className="flex flex-col items-center gap-2 text-white/75">
           <Eye size={32} />
           <span className="font-bold">{label}</span>
-          <span className="text-xs text-white/40">Solte para esconder</span>
+          <span className="text-xs text-white/60">Solte para esconder</span>
         </div>
       )}
     </button>
@@ -77,7 +77,7 @@ export function PhaseTitle({ kicker, title, sub }: { kicker?: ReactNode; title: 
     <div className="text-center">
       {kicker && <div className="mb-1 text-xs font-bold uppercase tracking-[.2em] text-arcade-cyan">{kicker}</div>}
       <h2 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{title}</h2>
-      {sub && <p className="mt-1 text-sm text-white/60">{sub}</p>}
+      {sub && <p className="mt-1 text-sm text-white/75">{sub}</p>}
     </div>
   );
 }

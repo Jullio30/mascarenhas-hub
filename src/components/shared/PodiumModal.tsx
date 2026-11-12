@@ -78,7 +78,7 @@ export default function PodiumModal() {
                 <div>
                   <div className="text-xs font-bold uppercase tracking-widest text-arcade-cyan">{h.title}</div>
                   <div className="font-bold">{p?.nickname}</div>
-                  <div className="text-xs text-white/50">{h.detail}</div>
+                  <div className="text-xs text-white/70">{h.detail}</div>
                 </div>
               </Card>
             );
@@ -91,7 +91,7 @@ export default function PodiumModal() {
           {podium.entries.map((e) => (
             <div key={e.playerId} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2">
               <span>
-                <b className="mr-2 text-white/40">{e.rank}º</b>
+                <b className="mr-2 text-white/60">{e.rank}º</b>
                 {nameOf(e.playerId)?.nickname}
                 {e.crown && ' 👑'}
               </span>
@@ -107,7 +107,7 @@ export default function PodiumModal() {
           Voltar ao lobby e escolher outro jogo
         </Button>
       ) : (
-        <div className="text-center text-white/60">Aguardando o anfitrião voltar ao lobby…</div>
+        <div className="text-center text-white/75">Aguardando o anfitrião voltar ao lobby…</div>
       )}
     </div>
   );

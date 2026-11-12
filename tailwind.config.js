@@ -4,16 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#090A0F',
-        surface: '#121521',
-        surface2: '#1A1E2E',
-        line: 'rgba(255,255,255,0.08)',
+        obsidian: '#141626',
+        surface: '#1D2036',
+        surface2: '#282C46',
+        line: 'rgba(255,255,255,0.15)',
         brand: { purple: '#8B5CF6', pink: '#EC4899' },
         arcade: { cyan: '#06B6D4', red: '#EF4444', green: '#10B981', amber: '#F59E0B' },
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', '"Plus Jakarta Sans"', 'sans-serif'],
+        display: ['"Bricolage Grotesque"', '"Plus Jakarta Sans"', 'sans-serif'],
       },
       boxShadow: {
         neon: '0 0 0 1px rgba(139,92,246,.6), 0 0 24px rgba(139,92,246,.35)',

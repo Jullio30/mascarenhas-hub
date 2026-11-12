@@ -43,7 +43,7 @@ function Splash({ text }: { text: string }) {
       <div className="flex flex-col items-center gap-5">
         <Logo size="lg" />
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-brand-pink" />
-        <div className="text-white/60">{text}</div>
+        <div className="text-white/75">{text}</div>
       </div>
     </div>
   );

@@ -115,7 +115,7 @@ export default function HomeScreen() {
               </span>
               <div className="min-w-0">
                 <div className="font-bold">{g.title}</div>
-                <div className="truncate text-xs text-white/50">{g.recommendedPlayers} jogadores</div>
+                <div className="truncate text-xs text-white/70">{g.recommendedPlayers} jogadores</div>
               </div>
             </div>
           ))}
@@ -143,7 +143,7 @@ export default function HomeScreen() {
             <Button size="lg" onClick={() => run('create')} loading={busy === 'create'} disabled={Boolean(busy)} icon={<Plus />}>
               Criar sala
             </Button>
-            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-white/30">
+            <div className="flex items-center gap-3 text-xs uppercase tracking-widest text-white/55">
               <span className="h-px flex-1 bg-line" /> ou entre com um código <span className="h-px flex-1 bg-line" />
             </div>
             <form
@@ -169,12 +169,12 @@ export default function HomeScreen() {
             </form>
           </div>
           {isSupabaseConfigured && (
-            <button className="mt-4 w-full text-center text-xs text-white/40 underline-offset-4 hover:text-white/70 hover:underline" onClick={() => setMode(mode === 'local' ? 'supabase' : 'local')}>
+            <button className="mt-4 w-full text-center text-xs text-white/60 underline-offset-4 hover:text-white/70 hover:underline" onClick={() => setMode(mode === 'local' ? 'supabase' : 'local')}>
               {mode === 'local' ? 'Voltar ao modo online (Supabase)' : 'Testar no Modo Local (abas do mesmo navegador)'}
             </button>
           )}
         </Card>
-        <p className="flex items-center justify-center gap-2 text-center text-xs text-white/40">
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-white/60">
           <Users size={14} /> Sem cadastro: seu apelido e avatar ficam salvos neste dispositivo.
         </p>
       </section>

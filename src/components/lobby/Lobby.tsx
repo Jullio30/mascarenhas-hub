@@ -44,7 +44,7 @@ function QRCodeModal({ open, onClose, code }: { open: boolean; onClose: () => vo
     <Modal open={open} onClose={onClose} title="Aponte a câmera para entrar">
       <div className="mx-auto w-full max-w-xs overflow-hidden rounded-2xl bg-white p-3" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="mt-4 text-center font-display text-3xl font-bold tracking-[.3em]">{code}</div>
-      <p className="mt-1 text-center text-sm text-white/50">Mascarenhas Hub • sala {code}</p>
+      <p className="mt-1 text-center text-sm text-white/70">Mascarenhas Hub • sala {code}</p>
     </Modal>
   );
 }
@@ -68,7 +68,7 @@ export function RoomCodePanel() {
   };
   return (
     <Card className="flex flex-col items-center gap-4 text-center" glow="purple">
-      <div className="text-xs font-bold uppercase tracking-[.25em] text-white/50">Código da sala</div>
+      <div className="text-xs font-bold uppercase tracking-[.25em] text-white/70">Código da sala</div>
       <div className="font-display text-5xl font-bold tracking-[.3em] sm:text-6xl">{streamer ? '••••••' : <span className="brand-text">{code}</span>}</div>
       {mode === 'local' && <Badge color="amber">Modo Local: convide abrindo novas abas neste navegador</Badge>}
       <div className="grid w-full grid-cols-3 gap-2">
@@ -155,7 +155,7 @@ function ConfigField({ opt, value, editable, onChange }: { opt: GameConfigOption
           type="button"
           disabled={!editable}
           onClick={() => onChange(!value)}
-          className={cn('flex min-h-12 items-center justify-between rounded-2xl border px-4 font-semibold transition disabled:opacity-60', Boolean(value) ? 'border-arcade-green/50 bg-arcade-green/10 text-emerald-200' : 'border-line text-white/60')}
+          className={cn('flex min-h-12 items-center justify-between rounded-2xl border px-4 font-semibold transition disabled:opacity-60', Boolean(value) ? 'border-arcade-green/50 bg-arcade-green/10 text-emerald-200' : 'border-line text-white/75')}
         >
           {value ? 'Ativado' : 'Desativado'}
           <span className={cn('h-6 w-11 rounded-full p-0.5 transition', Boolean(value) ? 'bg-arcade-green' : 'bg-white/15')}>
@@ -205,7 +205,7 @@ export default function Lobby() {
     <div className="mx-auto grid w-full max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[1fr_380px]">
       <div className="grid content-start gap-5">
         <Card>
-          <SectionTitle right={!isHost && <span className="text-xs text-white/40">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
+          <SectionTitle right={!isHost && <span className="text-xs text-white/60">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
           <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
             {FILTERS.map((f) => {
               const n = REGISTERED_GAMES.filter((g) => matchesFilter(g, f.key)).length;
@@ -213,7 +213,7 @@ export default function Lobby() {
                 <button
                   key={f.key}
                   onClick={() => setFilter(f.key)}
-                  className={cn('shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition', filter === f.key ? 'border-brand-purple bg-brand-purple/20 text-white' : 'border-line text-white/60 hover:text-white')}
+                  className={cn('shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition', filter === f.key ? 'border-brand-purple bg-brand-purple/20 text-white' : 'border-line text-white/75 hover:text-white')}
                 >
                   {f.label} ({n})
                 </button>
@@ -243,7 +243,7 @@ export default function Lobby() {
                       choose();
                     }
                   }}
-                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn('border-line bg-white/[.02]', isHost && 'hover:bg-white/[.05]'))}
+                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn('border-line bg-surface/70', isHost && 'hover:bg-white/[.05]'))}
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', a.bg)}>
@@ -252,9 +252,9 @@ export default function Lobby() {
                     <span className="min-w-0 flex-1 font-display text-lg font-bold leading-tight">{g.title}</span>
                     {g.edition === 'new' && <Badge color="green">Novo</Badge>}
                   </div>
-                  <span className="text-sm text-white/60">{g.shortDescription}</span>
+                  <span className="text-sm text-white/75">{g.shortDescription}</span>
                   <div className="mt-auto flex items-center justify-between gap-2">
-                    <span className="text-xs text-white/40">
+                    <span className="text-xs text-white/60">
                       {g.minPlayers}–{g.maxPlayers} jogadores • ideal {g.recommendedPlayers}
                     </span>
                     <button
@@ -339,7 +339,7 @@ export default function Lobby() {
                 </li>
               ))}
             </ul>
-            <div className="text-xs text-white/50">
+            <div className="text-xs text-white/70">
               {rulesGame.minPlayers}–{rulesGame.maxPlayers} jogadores • ideal {rulesGame.recommendedPlayers}
             </div>
             {isHost && rulesGame.slug !== snapshot.gameSlug && (
@@ -375,7 +375,7 @@ export function SessionScoreboard() {
         {sorted.map((p, i) => (
           <div key={p.id} className="flex items-center justify-between rounded-xl bg-white/[.03] px-3 py-2 text-sm">
             <span className="truncate">
-              <b className="mr-2 text-white/40">{i + 1}º</b>
+              <b className="mr-2 text-white/60">{i + 1}º</b>
               {p.nickname}
             </span>
             <span className="font-display tabular-nums">

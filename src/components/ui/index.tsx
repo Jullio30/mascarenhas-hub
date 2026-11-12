@@ -65,7 +65,7 @@ export function Badge({ children, color = 'purple', className }: { children: Rea
     red: 'bg-arcade-red/15 text-red-300 border-arcade-red/30',
     green: 'bg-arcade-green/15 text-emerald-300 border-arcade-green/30',
     amber: 'bg-arcade-amber/15 text-amber-300 border-arcade-amber/30',
-    gray: 'bg-white/5 text-white/60 border-white/10',
+    gray: 'bg-white/10 text-white/80 border-white/20',
   };
   return <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold', colors[color], className)}>{children}</span>;
 }
@@ -78,7 +78,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'min-h-12 w-full rounded-2xl border bg-obsidian/70 px-4 text-base text-white placeholder:text-white/30 outline-none transition focus:border-brand-purple focus:shadow-neon',
+        'min-h-12 w-full rounded-2xl border bg-obsidian/70 px-4 text-base text-white placeholder:text-white/55 outline-none transition focus:border-brand-purple focus:shadow-neon',
         invalid ? 'border-arcade-red animate-shake' : 'border-line',
         className,
       )}
@@ -119,7 +119,7 @@ export function Modal({
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="font-display text-xl font-bold">{title}</h2>
             {dismissable && onClose && (
-              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-white/60 hover:bg-white/10 hover:text-white" aria-label="Fechar">
+              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl text-white/75 hover:bg-white/10 hover:text-white" aria-label="Fechar">
                 <X size={20} />
               </button>
             )}
@@ -134,7 +134,7 @@ export function Modal({
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h3 className="text-xs font-bold uppercase tracking-[.18em] text-white/50">{children}</h3>
+      <h3 className="text-xs font-bold uppercase tracking-[.18em] text-white/70">{children}</h3>
       {right}
     </div>
   );

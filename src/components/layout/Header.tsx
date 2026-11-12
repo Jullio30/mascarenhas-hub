@@ -6,8 +6,8 @@ import { cn } from '../ui';
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   return (
     <div className="flex items-center gap-2">
-      <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-14 w-14' : 'h-9 w-9'} />
-      <span className={cn('font-display font-bold tracking-tight', size === 'lg' ? 'text-4xl sm:text-5xl' : 'text-xl')}>
+      <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className={size === 'lg' ? 'h-12 w-12 shrink-0 sm:h-14 sm:w-14' : 'h-9 w-9 shrink-0'} />
+      <span className={cn('font-display font-extrabold tracking-tight', size === 'lg' ? 'text-4xl sm:text-6xl' : 'text-xl sm:text-2xl')}>
         <span className="brand-text">Mascarenhas</span> Hub
       </span>
     </div>
@@ -44,8 +44,8 @@ export function ConnectionBadge() {
     connecting: { text: 'Conectando…', cls: 'text-amber-200 border-arcade-amber/40 bg-arcade-amber/10' },
     reconnecting: { text: 'Reconectando…', cls: 'text-amber-200 border-arcade-amber/40 bg-arcade-amber/10' },
     error: { text: 'Sem conexão', cls: 'text-red-300 border-arcade-red/40 bg-arcade-red/10' },
-    inactive: { text: 'Pausado', cls: 'text-white/60 border-line' },
-    idle: { text: '—', cls: 'text-white/60 border-line' },
+    inactive: { text: 'Pausado', cls: 'text-white/75 border-line' },
+    idle: { text: '—', cls: 'text-white/75 border-line' },
   } as const;
   const m = map[connection];
   const Icon = mode === 'local' ? Laptop : connection === 'connected' ? Wifi : WifiOff;
@@ -76,5 +76,5 @@ export function Header({ onLeave }: { onLeave?: () => void }) {
 }
 
 export function Footer() {
-  return <footer className="py-6 text-center text-xs text-white/30">Mascarenhas Hub • party games para jogar junto</footer>;
+  return <footer className="py-6 text-center text-xs text-white/55">Mascarenhas Hub • party games para jogar junto</footer>;
 }

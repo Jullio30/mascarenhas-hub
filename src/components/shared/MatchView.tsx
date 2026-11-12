@@ -26,7 +26,7 @@ class GameErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       return (
         <Card className="text-center">
           <div className="font-bold text-arcade-red">Ops! Algo falhou ao desenhar o jogo.</div>
-          <p className="mt-1 text-sm text-white/60">{this.state.error.message}</p>
+          <p className="mt-1 text-sm text-white/75">{this.state.error.message}</p>
           <Button className="mt-4" variant="secondary" onClick={() => this.setState({ error: null })}>
             Tentar novamente
           </Button>
@@ -45,7 +45,7 @@ export function MatchScoreboard() {
     <div className="grid gap-1.5">
       {sorted.map((p, i) => (
         <div key={p.id} className={cn('flex items-center gap-2 rounded-xl px-2 py-1.5', p.id === meId ? 'bg-brand-purple/15' : 'bg-white/[.03]')}>
-          <span className="w-6 text-center text-sm font-bold text-white/40">{i + 1}º</span>
+          <span className="w-6 text-center text-sm font-bold text-white/60">{i + 1}º</span>
           <Avatar id={p.avatar} size={28} dim={!presence[p.id]} />
           <span className="flex-1 truncate text-sm font-semibold">{p.nickname}</span>
           <PresenceDot status={presence[p.id] ?? 'disconnected'} />
@@ -61,11 +61,11 @@ function RoundLog() {
   return (
     <div className="grid max-h-56 gap-1 overflow-y-auto text-sm">
       {[...log].reverse().slice(0, 15).map((l) => (
-        <div key={l.id} className="rounded-lg bg-white/[.02] px-2 py-1 text-white/60">
+        <div key={l.id} className="rounded-lg bg-surface/70 px-2 py-1 text-white/75">
           {l.text}
         </div>
       ))}
-      {log.length === 0 && <div className="text-white/30">Nada por aqui ainda.</div>}
+      {log.length === 0 && <div className="text-white/55">Nada por aqui ainda.</div>}
     </div>
   );
 }
@@ -99,7 +99,7 @@ function PauseOverlay() {
       <Card className="w-full max-w-sm text-center animate-pop" glow="purple">
         <Pause className="mx-auto mb-2 text-brand-purple" size={40} />
         <div className="font-display text-2xl font-bold">Partida pausada</div>
-        <p className="mt-1 text-white/60">
+        <p className="mt-1 text-white/75">
           {pause.reason === 'min_players' ? `Jogadores insuficientes. Aguardando reconexão… ${Math.ceil(rem / 1000)}s` : 'O anfitrião pausou a partida.'}
         </p>
         {isHost && (
@@ -141,7 +141,7 @@ export default function MatchView() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate font-display font-bold">{plugin.title}</div>
-            <div className="text-xs text-white/50">
+            <div className="text-xs text-white/70">
               {g.roundLabel ?? `Rodada ${Math.min(g.round, g.totalRounds)} de ${g.totalRounds}`}
             </div>
           </div>
