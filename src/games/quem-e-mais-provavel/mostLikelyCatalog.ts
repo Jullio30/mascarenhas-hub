@@ -1,8 +1,10 @@
 /**
  * Quem é Mais Provável? — catálogo curado (PT-BR).
- * Curadoria: perguntas leves e divertidas, sem conteúdo discriminatório, humilhante, sexual ou ofensivo.
+ * Níveis leves (cotidiano, sobrevivência, futuro) + níveis provocativos selecionáveis pelo anfitrião
+ * (zoeira, relacionamentos, caos e "sem filtro / +18"). Nenhuma pergunta usa raça, religião, orientação,
+ * aparência física ou deficiência como alvo — a provocação é sobre atitudes e situações.
  */
-export type MostLikelyVibe = 'cotidiano' | 'sobrevivencia' | 'futuro';
+export type MostLikelyVibe = 'cotidiano' | 'sobrevivencia' | 'futuro' | 'zoeira' | 'relacionamentos' | 'caos' | 'semfiltro';
 
 export interface MostLikelyPrompt {
   id: string;
@@ -102,8 +104,148 @@ const FUTURO = [
   'Quem é mais provável de virar guia turístico de uma cidade histórica?',
 ] as const;
 
+
+const ZOEIRA = [
+  'Quem é o mais idiota do grupo?',
+  'Quem tem mais chance de dar orgulho para a família?',
+  'Quem tem mais chance de arrumar uma briga por motivo besta?',
+  'Quem é mais provável de rir da própria piada antes de terminar de contar?',
+  'Quem é mais provável de cair na pegadinha mais óbvia do mundo?',
+  'Quem é mais provável de mandar mensagem no grupo errado?',
+  'Quem é mais provável de ser o primeiro a passar mal na festa?',
+  'Quem é mais provável de falar “só mais uma” e ficar até o fim?',
+  'Quem é mais provável de fingir que entendeu a piada?',
+  'Quem é mais provável de pedir dinheiro emprestado e “esquecer” de devolver?',
+  'Quem é mais provável de virar meme na internet?',
+  'Quem é mais provável de ser barrado na porta da balada?',
+  'Quem é mais provável de dormir no rolê e acordar com a cara rabiscada?',
+  'Quem é mais provável de perder uma aposta e cumprir o castigo mais vergonhoso?',
+  'Quem é mais provável de contar um segredo sem querer?',
+  'Quem é mais provável de ser o pior motorista do grupo?',
+  'Quem é mais provável de chorar assistindo desenho animado?',
+  'Quem é mais provável de ficar bravo perdendo no videogame?',
+  'Quem é mais provável de stalkear um perfil e curtir uma foto de 2015 sem querer?',
+  'Quem é mais provável de cair na conversa de um golpista?',
+  'Quem é mais provável de ser o último a entender a fofoca?',
+  'Quem é mais provável de comer a comida dos outros na geladeira e negar?',
+  'Quem é mais provável de chegar fantasiado na festa errada?',
+  'Quem é mais provável de ser expulso do grupo da família?',
+  'Quem é mais provável de virar coach motivacional do nada?',
+  'Quem é mais provável de fingir que está ocupado para não ajudar na mudança?',
+  'Quem é mais provável de se gabar de algo que não fez?',
+  'Quem é mais provável de tropeçar no meio de uma entrada triunfal?',
+  'Quem é mais provável de ganhar o prêmio de “pior cantor do karaokê”?',
+  'Quem é mais provável de levar o fora mais épico da história do grupo?',
+] as const;
+
+const RELACIONAMENTOS = [
+  'Quem é mais fiel do grupo?',
+  'Quem voltaria com o ex?',
+  'Quem tem mais chance de ficar com duas pessoas ao mesmo tempo?',
+  'Quem tem mais chance de ficar com duas melhores amigas?',
+  'Quem seria capaz de trair e nunca ser descoberto?',
+  'Quem é mais provável de engravidar (ou engravidar alguém) primeiro?',
+  'Quem é mais provável de casar primeiro?',
+  'Quem é mais provável de casar em Las Vegas sem avisar ninguém?',
+  'Quem é mais provável de mandar “oi sumida” às 3 da manhã?',
+  'Quem é mais provável de stalkear o ex até hoje?',
+  'Quem é mais provável de se apaixonar em uma semana e terminar na seguinte?',
+  'Quem é mais provável de ter um crush secreto em alguém deste grupo?',
+  'Quem é mais provável de esquecer o aniversário de namoro?',
+  'Quem é mais provável de terminar por mensagem?',
+  'Quem é mais provável de ser o “contatinho reserva” de alguém?',
+  'Quem é mais provável de fazer ciúme de propósito?',
+  'Quem é mais provável de ficar com o ex de um amigo?',
+  'Quem é mais provável de ter mais de três contatinhos ao mesmo tempo?',
+  'Quem é mais provável de pedir alguém em namoro no primeiro encontro?',
+  'Quem é mais provável de levar o crush para conhecer a mãe cedo demais?',
+  'Quem é mais provável de ler a conversa do parceiro escondido?',
+  'Quem é mais provável de ser o mais ciumento do grupo?',
+  'Quem é mais provável de ficar solteiro para sempre por escolha?',
+  'Quem é mais provável de ter o relacionamento mais longo do grupo?',
+  'Quem é mais provável de dar um perdido no meio do encontro?',
+  'Quem é mais provável de se declarar bêbado e negar no dia seguinte?',
+  'Quem é mais provável de ser pego no flagra pelo ex?',
+  'Quem é mais provável de namorar à distância?',
+  'Quem é mais provável de usar o mesmo papo para conquistar todo mundo?',
+  'Quem é mais provável de chorar no casamento do ex?',
+] as const;
+
+const CAOS = [
+  'Quem seria preso primeiro?',
+  'Quem venderia os amigos por dinheiro?',
+  'Quem é mais provável de começar uma briga e sair de fininho?',
+  'Quem é mais provável de ser cancelado na internet?',
+  'Quem é mais provável de vazar os prints do grupo?',
+  'Quem é mais provável de mentir no currículo?',
+  'Quem é mais provável de fingir uma doença para faltar ao trabalho?',
+  'Quem é mais provável de entrar numa pirâmide financeira e chamar todo mundo?',
+  'Quem é mais provável de ser expulso de um restaurante?',
+  'Quem é mais provável de dar um golpe e fugir para outro país?',
+  'Quem é mais provável de criar uma conta fake para espionar alguém?',
+  'Quem é mais provável de trair o grupo em um jogo de tabuleiro?',
+  'Quem é mais provável de apostar o salário inteiro?',
+  'Quem é mais provável de entregar os amigos num interrogatório?',
+  'Quem é mais provável de fazer barraco em público?',
+  'Quem é mais provável de discutir com estranhos na internet por horas?',
+  'Quem é mais provável de pedir demissão no grito?',
+  'Quem é mais provável de esconder uma dívida gigante?',
+  'Quem é mais provável de ser o fofoqueiro oficial do grupo?',
+  'Quem é mais provável de quebrar algo na casa dos outros e não contar?',
+  'Quem é mais provável de virar político?',
+  'Quem é mais provável de falar mal de alguém e depois curtir tudo da pessoa?',
+  'Quem é mais provável de largar tudo e sumir sem avisar?',
+  'Quem é mais provável de ser o vilão da história de alguém?',
+  'Quem é mais provável de ir para a cadeia por um motivo ridículo?',
+] as const;
+
+const SEM_FILTRO = [
+  'Quem é mais provável de ter o histórico de navegação mais comprometedor?',
+  'Quem é mais provável de ter fotos que nunca podem vazar?',
+  'Quem é mais provável de beijar um desconhecido na balada?',
+  'Quem é mais provável de acordar sem lembrar onde está?',
+  'Quem é mais provável de ficar com alguém do trabalho?',
+  'Quem é mais provável de ter um caso secreto?',
+  'Quem é mais provável de mandar nudes para a pessoa errada?',
+  'Quem é mais provável de ter a lista de ficantes mais longa do grupo?',
+  'Quem é mais provável de ir para um motel no meio da semana?',
+  'Quem é mais provável de beijar mais de uma pessoa na mesma festa?',
+  'Quem é mais provável de já ter ficado com alguém deste grupo?',
+  'Quem é mais provável de ser pego no flagra pelos pais?',
+  'Quem é mais provável de dar em cima do garçom?',
+  'Quem é mais provável de ter um app de relacionamento escondido?',
+  'Quem é mais provável de ir embora da festa acompanhado sem avisar ninguém?',
+  'Quem é mais provável de beber até esquecer o próprio nome?',
+  'Quem é mais provável de ter o crush mais inesperado?',
+  'Quem é mais provável de contar detalhes demais da vida amorosa?',
+  'Quem é mais provável de ter um encontro desastroso por mês?',
+  'Quem é mais provável de ficar com o primo de um amigo?',
+  'Quem é mais provável de ter a maior coleção de ex?',
+  'Quem é mais provável de flertar para conseguir desconto?',
+  'Quem é mais provável de reatar com o ex depois de três drinks?',
+  'Quem é mais provável de ter a vida amorosa mais caótica do grupo?',
+  'Quem é mais provável de guardar um segredo que acabaria com a amizade?',
+] as const;
+
 export const MOST_LIKELY_CATALOG: MostLikelyPrompt[] = [
   ...COTIDIANO.map((text, i) => ({ id: `qmp:c${i}`, vibe: 'cotidiano' as const, text })),
   ...SOBREVIVENCIA.map((text, i) => ({ id: `qmp:s${i}`, vibe: 'sobrevivencia' as const, text })),
   ...FUTURO.map((text, i) => ({ id: `qmp:f${i}`, vibe: 'futuro' as const, text })),
+  ...ZOEIRA.map((text, i) => ({ id: `qmp:z${i}`, vibe: 'zoeira' as const, text })),
+  ...RELACIONAMENTOS.map((text, i) => ({ id: `qmp:r${i}`, vibe: 'relacionamentos' as const, text })),
+  ...CAOS.map((text, i) => ({ id: `qmp:x${i}`, vibe: 'caos' as const, text })),
+  ...SEM_FILTRO.map((text, i) => ({ id: `qmp:18-${i}`, vibe: 'semfiltro' as const, text })),
 ];
+
+/** Grupos selecionáveis no lobby → níveis incluídos. */
+export const MOST_LIKELY_VIBE_GROUPS: Record<string, MostLikelyVibe[]> = {
+  todas: ['cotidiano', 'sobrevivencia', 'futuro', 'zoeira', 'relacionamentos', 'caos'],
+  tudo: ['cotidiano', 'sobrevivencia', 'futuro', 'zoeira', 'relacionamentos', 'caos', 'semfiltro'],
+  zoeira: ['zoeira'],
+  relacionamentos: ['relacionamentos'],
+  caos: ['caos'],
+  semfiltro: ['semfiltro'],
+  cotidiano: ['cotidiano'],
+  sobrevivencia: ['sobrevivencia'],
+  futuro: ['futuro'],
+};

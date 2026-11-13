@@ -14,6 +14,12 @@ import { infiltradoPlugin } from '../../games/infiltrado';
 import { sabeOuPerdePlugin } from '../../games/sabe-ou-perde';
 import { quemEMaisProvavelPlugin } from '../../games/quem-e-mais-provavel';
 import { ordemCaoticaPlugin } from '../../games/ordem-caotica';
+import { duasVerdadesPlugin } from '../../games/duas-verdades-uma-mentira';
+import { telefoneDePalavrasPlugin } from '../../games/telefone-de-palavras';
+import { chutePerfeitoPlugin } from '../../games/chute-perfeito';
+import { quemEscreveuPlugin } from '../../games/quem-escreveu';
+import { defesaImpossivelPlugin } from '../../games/defesa-impossivel';
+import { impulsaoContrariaPlugin } from '../../games/impulsao-contraria';
 
 // O registro guarda os plugins com tipos apagados; cada plugin é fortemente tipado internamente.
 type AnyPlugin = MascarenhasGamePlugin<BasePublicState, unknown, unknown>;
@@ -29,6 +35,12 @@ export const REGISTERED_GAMES: AnyPlugin[] = [
   sabeOuPerdePlugin as unknown as AnyPlugin,
   quemEMaisProvavelPlugin as unknown as AnyPlugin,
   ordemCaoticaPlugin as unknown as AnyPlugin,
+  duasVerdadesPlugin as unknown as AnyPlugin,
+  telefoneDePalavrasPlugin as unknown as AnyPlugin,
+  chutePerfeitoPlugin as unknown as AnyPlugin,
+  quemEscreveuPlugin as unknown as AnyPlugin,
+  defesaImpossivelPlugin as unknown as AnyPlugin,
+  impulsaoContrariaPlugin as unknown as AnyPlugin,
 ];
 
 export function getGame(slug: GameSlug): AnyPlugin {

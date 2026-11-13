@@ -21,6 +21,7 @@ import { emptyStats, shiftTimestamps } from './helpers';
 import { sanitizeNickname } from '../../lib/textUtils';
 import { AVATARS } from '../../data/avatars';
 import type { PlayerProfile } from '../realtime/roomChannel';
+import { resolveCustomItems } from '../contentPacks/contentPackManager';
 
 export type AuthorityListener = (snap: RoomSnapshot, views: Record<string, unknown>, secret: unknown, viewsChanged: boolean) => void;
 
@@ -390,6 +391,8 @@ export class RoomAuthority {
     const players = structuredClone(participants);
     const ctx = this.makeCtx(players, config, logs);
     ctx.external = external;
+    // Editor Universal: os pacotes ficam no dispositivo do anfitrião; o jogo copia os itens para o seu segredo.
+    ctx.customItems = resolveCustomItems(plugin.slug, config);
     const draft = plugin.createInitialState(players, config, ctx);
     this.snap.game = draft.pub;
     this.secret = draft.sec;

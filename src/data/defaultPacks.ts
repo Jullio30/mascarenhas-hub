@@ -4,6 +4,8 @@
  * (gerado por `npm run seed`). Edite aqui e rode o script para manter ambos em sincronia.
  */
 
+import { EXTRA_SONGS } from './musicExpansion';
+
 export type FiveSecCategory = 'Cotidiano' | 'Cultura Pop' | 'Esportes' | 'Geek' | 'Caos';
 
 export interface FiveSecPrompt {
@@ -29,7 +31,11 @@ export type MusicGenre =
   | 'Pop'
   | 'Rap/Trap'
   | 'Clássicos Brasileiros'
-  | 'Games & Animes';
+  | 'Games & Animes'
+  | 'Funk'
+  | 'Pagode & Samba'
+  | 'Anime'
+  | 'Videogames';
 
 export interface Song {
   id: string;
@@ -45,6 +51,8 @@ export interface Song {
   theme: string;
   /** Grafias alternativas aceitas como resposta. */
   aliases?: string[];
+  /** Música internacional (filtro “Música Internacional”). */
+  intl?: boolean;
 }
 
 export interface CategoryPrompt {
@@ -336,7 +344,7 @@ export const DEFAULT_CATALOG: Catalog = {
   fiveSec: FIVE_SEC_PROMPTS,
   impostor: IMPOSTOR_CATEGORIES,
   megaSenha: MEGA_SENHA_WORDS,
-  songs: SONGS,
+  songs: [...SONGS, ...EXTRA_SONGS],
   categories: CATEGORY_PROMPTS,
 };
 
@@ -348,4 +356,8 @@ export const MUSIC_GENRES: MusicGenre[] = [
   'Rap/Trap',
   'Clássicos Brasileiros',
   'Games & Animes',
+  'Funk',
+  'Pagode & Samba',
+  'Anime',
+  'Videogames',
 ];

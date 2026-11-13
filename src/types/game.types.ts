@@ -11,7 +11,13 @@ export type GameSlug =
   | 'infiltrado'
   | 'sabe-ou-perde'
   | 'quem-e-mais-provavel'
-  | 'ordem-caotica';
+  | 'ordem-caotica'
+  | 'duas-verdades-uma-mentira'
+  | 'telefone-de-palavras'
+  | 'chute-perfeito'
+  | 'quem-escreveu'
+  | 'defesa-impossivel'
+  | 'impulsao-contraria';
 
 export type GameAccent = 'purple' | 'pink' | 'cyan' | 'red' | 'amber' | 'violet' | 'green' | 'blue' | 'orange';
 export type GameGroup = 'deducao' | 'trivia' | 'social';
@@ -22,7 +28,8 @@ export type GameConfig = Record<string, ConfigValue>;
 export interface GameConfigOption {
   key: string;
   label: string;
-  type: 'number' | 'select' | 'boolean';
+  /** 'multiselect' guarda os valores marcados como string separada por vírgulas. */
+  type: 'number' | 'select' | 'boolean' | 'multiselect';
   defaultValue: number | string | boolean;
   options?: { label: string; value: string | number }[];
   min?: number;
@@ -30,6 +37,8 @@ export interface GameConfigOption {
   help?: string;
   /** Exibe a opção apenas quando a condição for verdadeira (ex.: 2 impostores só com 7+ jogadores). */
   visibleWhen?: (playerCount: number) => boolean;
+  /** Exibe a opção apenas quando a configuração atual satisfaz a condição (ex.: lista de temas só no modo "Selecionados"). */
+  visibleWhenConfig?: (config: GameConfig) => boolean;
 }
 
 export type PresenceStatus = 'online' | 'away' | 'disconnected';
@@ -145,6 +154,15 @@ export interface EngineCtx {
   markUsed: (promptId: string) => void;
   /** Conteúdo pré-carregado pelo anfitrião (APIs externas) via plugin.prepare, só em createInitialState. */
   external?: unknown;
+  /** Itens dos pacotes personalizados do anfitrião (Editor Universal), só em createInitialState. */
+  customItems?: CustomItem[];
+}
+
+/** Item de pacote personalizado já sanitizado: `parts` = colunas separadas por "|" (parts[0] = texto principal). */
+export interface CustomItem {
+  id: string;
+  text: string;
+  parts: string[];
 }
 
 /** Motor puro do jogo. Recebe rascunhos mutáveis e retorna `true` quando houve mudança. */

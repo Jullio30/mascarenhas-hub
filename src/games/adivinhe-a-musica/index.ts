@@ -1,17 +1,17 @@
 import type { MascarenhasGamePlugin } from '../../types/game.types';
-import { MUSIC_GENRES } from '../../data/defaultPacks';
+import { MUSIC_FILTERS } from '../../data/musicExpansion';
 import AdivinheAMusica from './AdivinheAMusica';
-import { createMusic, musicEngine, type MusicSecret, type MusicState } from './logic';
+import { MODALITY_OPTIONS, createMusic, musicEngine, type MusicSecret, type MusicState, type MusicView } from './logic';
 
-export const adivinheAMusicaPlugin: MascarenhasGamePlugin<MusicState, MusicSecret> = {
+export const adivinheAMusicaPlugin: MascarenhasGamePlugin<MusicState, MusicSecret, MusicView> = {
   slug: 'adivinhe-a-musica',
   title: 'Adivinhe a Música',
-  shortDescription: '4 dicas progressivas. Quanto antes acertar, mais pontos!',
+  shortDescription: 'Dicas progressivas, artistas, décadas, gêneros e curiosidades musicais — sem letras, só conhecimento!',
   rulesSummary: [
-    'Cada rodada dura 48s com 4 estágios de dicas (15, 10, 7 e 4 pontos).',
-    'Todos jogam ao mesmo tempo; quem acerta não revela a resposta aos outros.',
-    'O primeiro a acertar ganha +3 de First Blood.',
-    'Máximo de 2 palpites por estágio. Erros de digitação leves são aceitos.',
+    'Rodada de DICAS: 48s com 4 estágios (15, 10, 7 e 4 pontos); máximo de 2 palpites por estágio, erros leves de digitação são aceitos.',
+    'Rodadas de QUIZ (artista, complete a informação, contexto, décadas, gêneros): 4 alternativas, 1 resposta por jogador; acerto vale 10 + até 5 de bônus de velocidade.',
+    'O primeiro a acertar ganha +3 de First Blood. Ninguém vê a resposta dos outros antes da revelação.',
+    'O anfitrião escolhe a modalidade e o gênero (Funk, Sertanejo, Pop, Rock, Rap/Trap, Internacional, Anime, Games, Clássicos/MPB/Pagode). Sem letras nem áudio: só dicas e curiosidades.',
   ],
   minPlayers: 2,
   maxPlayers: 20,
@@ -21,13 +21,14 @@ export const adivinheAMusicaPlugin: MascarenhasGamePlugin<MusicState, MusicSecre
   edition: 'classic',
   groups: ['trivia'],
   configSchema: [
-    { key: 'rounds', label: 'Músicas na partida', type: 'number', defaultValue: 8, min: 3, max: 20 },
+    { key: 'rounds', label: 'Rodadas na partida', type: 'number', defaultValue: 8, min: 3, max: 20 },
+    { key: 'modality', label: 'Modalidade', type: 'select', defaultValue: 'mix', options: MODALITY_OPTIONS },
     {
       key: 'genre',
-      label: 'Gênero musical',
+      label: 'Gênero / rodada temática',
       type: 'select',
       defaultValue: 'all',
-      options: [{ label: 'Todos os gêneros', value: 'all' }, ...MUSIC_GENRES.map((g) => ({ label: g, value: g }))],
+      options: MUSIC_FILTERS.map((f) => ({ label: f.label, value: f.value })),
     },
   ],
   createInitialState: createMusic,

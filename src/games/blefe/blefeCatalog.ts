@@ -6,7 +6,10 @@ import type { PokemonInfo } from '../../services/externalApis/pokeApiService';
 import type { HistoryEvent } from '../../services/externalApis/historyApiService';
 import { fmtNum } from '../../services/externalApis/apiClient';
 
-export type BlefeCategory = 'curiosidades' | 'geek' | 'historia' | 'brasil';
+export type BlefeCategory = 'curiosidades' | 'geek' | 'historia' | 'brasil' | 'custom';
+
+/** Temas oficiais (ordem exibida no lobby). */
+export const BLEFE_THEMES = ['curiosidades', 'geek', 'historia', 'brasil'] as const;
 
 export interface BlefeQuestion {
   id: string;
@@ -23,6 +26,7 @@ export const BLEFE_CATEGORY_LABEL: Record<BlefeCategory, string> = {
   geek: 'Mundo Pokémon & Geek',
   historia: 'História & Ciência',
   brasil: 'Brasil & Mundo',
+  custom: 'Meus Pacotes',
 };
 
 type Row = [question: string, trueAnswer: string, synonyms: string[], bluffs: [string, string, string], explanation: string];

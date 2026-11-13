@@ -1,4 +1,5 @@
 import type { MascarenhasGamePlugin } from '../../types/game.types';
+import { PACK_MODE_OPTION } from '../../core/engine/helpers';
 import QuemEMaisProvavel from './QuemEMaisProvavel';
 import { createQmp, qmpEngine, type QmpSecret, type QmpState, type QmpView } from './logic';
 
@@ -20,20 +21,26 @@ export const quemEMaisProvavelPlugin: MascarenhasGamePlugin<QmpState, QmpSecret,
   edition: 'new',
   groups: ['social'],
   configSchema: [
-    { key: 'rounds', label: 'Rodadas', type: 'select', defaultValue: 8, options: [5, 8, 12].map((n) => ({ label: `${n} perguntas`, value: n })) },
+    { key: 'rounds', label: 'Rodadas', type: 'select', defaultValue: 8, options: [5, 8, 12, 20].map((n) => ({ label: `${n} perguntas`, value: n })) },
     { key: 'voteTimeSeconds', label: 'Tempo de votação', type: 'select', defaultValue: 20, options: [15, 20, 30].map((n) => ({ label: `${n}s`, value: n })) },
     {
       key: 'vibe',
-      label: 'Estilo das perguntas',
+      label: 'Categoria / intensidade',
       type: 'select',
       defaultValue: 'todas',
       options: [
-        { label: 'Todas', value: 'todas' },
-        { label: 'Cotidiano & Viagens', value: 'cotidiano' },
-        { label: 'Sobrevivência & Caos', value: 'sobrevivencia' },
-        { label: 'Futuro & Fama', value: 'futuro' },
+        { label: 'Todas misturadas (sem +18)', value: 'todas' },
+        { label: 'Todas misturadas + Sem Filtro', value: 'tudo' },
+        { label: '😂 Galera & Zoeira', value: 'zoeira' },
+        { label: '💔 Relacionamentos & Ex', value: 'relacionamentos' },
+        { label: '🔥 Caos & Polêmica', value: 'caos' },
+        { label: '🔞 Sem Filtro / +18', value: 'semfiltro' },
+        { label: 'Leve: Cotidiano & Viagens', value: 'cotidiano' },
+        { label: 'Leve: Sobrevivência', value: 'sobrevivencia' },
+        { label: 'Leve: Futuro & Fama', value: 'futuro' },
       ],
     },
+    PACK_MODE_OPTION,
   ],
   createInitialState: createQmp,
   engine: qmpEngine,

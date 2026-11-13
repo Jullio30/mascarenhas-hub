@@ -1,16 +1,18 @@
 import type { MascarenhasGamePlugin } from '../../types/game.types';
+import { PACK_MODE_OPTION } from '../../core/engine/helpers';
 import Desafio5Segundos from './Desafio5Segundos';
-import { createD5, d5Engine, type D5Secret, type D5State } from './logic';
+import { createD5, d5Engine, type D5Secret, type D5State, type D5View } from './logic';
 
-export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret> = {
+/** Desafio dos 10 Segundos — o slug `desafio-5-segundos` é mantido por compatibilidade (salas e configs salvas). */
+export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret, D5View> = {
   slug: 'desafio-5-segundos',
-  title: 'Desafio dos 5 Segundos',
-  shortDescription: 'Cite 3 itens do tema em apenas 5 segundos. A pressão é real!',
+  title: 'Desafio dos 10 Segundos',
+  shortDescription: 'Escreva até 5 respostas do tema em 10 segundos. Depois o grupo avalia cada uma!',
   rulesSummary: [
-    'Na sua vez, clique em “Estou Pronto!” para revelar o tema.',
-    'Você tem 5 segundos para dizer 3 respostas (ou 8s digitando).',
-    'Os outros jogadores julgam: Validar, Parcial ou Falhou.',
-    'Validado: +10 pts (+2 se terminar com mais de 1,5s sobrando). Parcial: +5.',
+    'Na sua vez, clique em “Estou Pronto!” para revelar o tema (ex.: “Cite 5 Pokémon do tipo Fogo”).',
+    'Você tem 10 segundos para digitar até 5 respostas — Enter confirma e pula para o próximo campo. O que estiver digitado quando o tempo zerar é enviado automaticamente.',
+    'Só depois do tempo (ou quando você terminar) os outros jogadores avaliam CADA resposta: 👍 Favorável ou 👎 Contrário. Você não vota nas suas.',
+    'Pontos: +1 por voto favorável em cada resposta (👎 vale 0). Ex.: 3 respostas com 3 👍 cada = 9 pontos.',
   ],
   minPlayers: 2,
   maxPlayers: 16,
@@ -20,18 +22,9 @@ export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret> = 
   edition: 'classic',
   groups: ['social'],
   configSchema: [
-    { key: 'turnsPerPlayer', label: 'Turnos por jogador', type: 'number', defaultValue: 2, min: 1, max: 6 },
-    {
-      key: 'answerMode',
-      label: 'Modo de resposta',
-      type: 'select',
-      defaultValue: 'voice',
-      options: [
-        { label: 'Voz / Presencial', value: 'voice' },
-        { label: 'Digitação rápida (8s)', value: 'typing' },
-      ],
-    },
-    { key: 'allowPartial', label: 'Permitir voto “Parcial” (+5)', type: 'boolean', defaultValue: true },
+    { key: 'turnsPerPlayer', label: 'Turnos por jogador', type: 'number', defaultValue: 1, min: 1, max: 6 },
+    { key: 'answersPerTurn', label: 'Respostas por turno', type: 'select', defaultValue: 5, options: [3, 5, 7].map((n) => ({ label: `${n} respostas`, value: n })) },
+    { key: 'timerSeconds', label: 'Tempo para escrever', type: 'select', defaultValue: 10, options: [10, 15, 20].map((n) => ({ label: `${n} segundos`, value: n })) },
     {
       key: 'category',
       label: 'Categoria das cartas',
@@ -46,6 +39,7 @@ export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret> = 
         { label: 'Caos', value: 'Caos' },
       ],
     },
+    PACK_MODE_OPTION,
   ],
   createInitialState: createD5,
   engine: d5Engine,

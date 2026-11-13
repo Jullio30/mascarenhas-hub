@@ -1,4 +1,5 @@
-import type { EngineCtx, PlayerStats } from '../../types/game.types';
+import type { CustomItem, EngineCtx, GameConfigOption, PlayerStats } from '../../types/game.types';
+import { mergePools, packModeOf, type PackMode } from '../contentPacks/contentPackManager';
 
 export function shuffle<T>(arr: T[], rng: () => number): T[] {
   const a = [...arr];
@@ -62,3 +63,34 @@ export function countMajority<T extends string>(votes: T[]): { top: T[]; counts:
   const top = Object.keys(counts).filter((k) => counts[k] === max) as T[];
   return { top, counts };
 }
+
+/** Modo de pacotes + itens personalizados entregues pelo anfitrião (só disponível em createInitialState). */
+export function customContent(ctx: EngineCtx): { mode: PackMode; items: CustomItem[] } {
+  const mode = packModeOf(ctx.config);
+  const items = mode === 'official' ? [] : (ctx.customItems ?? []);
+  if (mode === 'custom' && items.length === 0) ctx.log('Nenhum item nos pacotes personalizados — usando o catálogo oficial');
+  return { mode, items };
+}
+
+export { mergePools };
+
+/** Fila embaralhada sem reposição ("shuffle bag"): retira o próximo item e reabastece quando esvazia. */
+export function drawFromBag<T>(bag: T[], all: T[], rng: () => number, avoid?: T): { item: T; bag: T[] } {
+  let next = bag.length ? [...bag] : shuffle(all, rng);
+  if (!bag.length && avoid !== undefined && next.length > 1 && next[0] === avoid) next = [...next.slice(1), next[0]];
+  const [item, ...rest] = next;
+  return { item, bag: rest };
+}
+
+/** Config de pacotes personalizados reutilizada pelos jogos compatíveis com o Editor Universal (renderizada no painel de pacotes do lobby). */
+export const PACK_MODE_OPTION: GameConfigOption = {
+  key: 'packMode',
+  label: 'Conteúdo da partida',
+  type: 'select',
+  defaultValue: 'official',
+  options: [
+    { label: 'Apenas pacotes oficiais', value: 'official' },
+    { label: 'Oficiais + meus pacotes', value: 'mixed' },
+    { label: 'Apenas meus pacotes', value: 'custom' },
+  ],
+};

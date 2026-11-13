@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { BookOpen, Copy, Crown, Eye, EyeOff, Play, QrCode, Trophy, UserMinus, UserCog } from 'lucide-react';
+import { BookOpen, Check, Copy, Crown, Eye, EyeOff, Library, Play, QrCode, Trophy, UserMinus, UserCog } from 'lucide-react';
 import { useHubStore } from '../../store/useHubStore';
 import { useRoom } from '../../hooks/useRoom';
 import { session } from '../../core/session/sessionManager';
 import { REGISTERED_GAMES, getGame, defaultConfigFor } from '../../core/registry/gameRegistry';
-import type { GameConfigOption, GameSlug } from '../../types/game.types';
+import type { GameConfig, GameConfigOption, GameSlug } from '../../types/game.types';
+import { packModeOf, packsFor, selectedPackIds, supportsCustomContent, useCustomPacks } from '../../core/contentPacks/contentPackManager';
+import { PACK_MODE_OPTION } from '../../core/engine/helpers';
+import UniversalContentEditor from '../shared/UniversalContentEditor';
 import { sfx } from '../../core/audio/sfx';
 import { Badge, Button, Card, Modal, SectionTitle, cn } from '../ui';
 import { PlayerChip } from '../shared/PlayerBits';
@@ -150,6 +153,7 @@ function ConfigField({ opt, value, editable, onChange }: { opt: GameConfigOption
   return (
     <label className="grid gap-1.5">
       <span className="text-sm font-semibold text-white/80">{opt.label}</span>
+      {opt.help && <span className="-mt-1 text-xs text-white/65">{opt.help}</span>}
       {opt.type === 'boolean' ? (
         <button
           type="button"
@@ -162,6 +166,24 @@ function ConfigField({ opt, value, editable, onChange }: { opt: GameConfigOption
             <span className={cn('block h-5 w-5 rounded-full bg-white transition', Boolean(value) && 'translate-x-5')} />
           </span>
         </button>
+      ) : opt.type === 'multiselect' ? (
+        <div className="flex flex-wrap gap-2">
+          {opt.options?.map((o) => {
+            const list = String(value ?? '').split(',').filter(Boolean);
+            const on = list.includes(String(o.value));
+            return (
+              <button
+                key={String(o.value)}
+                type="button"
+                disabled={!editable}
+                onClick={() => onChange((on ? list.filter((x) => x !== String(o.value)) : [...list, String(o.value)]).join(','))}
+                className={cn('inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm font-semibold transition disabled:opacity-60', on ? 'border-brand-purple bg-brand-purple/20 text-white' : 'border-line text-white/75')}
+              >
+                {on && <Check size={14} />} {o.label}
+              </button>
+            );
+          })}
+        </div>
       ) : opt.type === 'select' ? (
         <select className={base} disabled={!editable} value={String(value)} onChange={(e) => onChange(typeof opt.defaultValue === 'number' ? Number(e.target.value) : e.target.value)}>
           {opt.options?.map((o) => (
@@ -290,13 +312,15 @@ export default function Lobby() {
             <SectionTitle>Configurações da partida</SectionTitle>
             <div className="grid gap-3">
               {game.configSchema
-                .filter((o) => !o.visibleWhen || o.visibleWhen(onlineCount))
+                .filter((o) => o.key !== 'packMode' && (!o.visibleWhen || o.visibleWhen(onlineCount)) && (!o.visibleWhenConfig || o.visibleWhenConfig(config)))
                 .map((o) => (
                   <ConfigField key={o.key} opt={o} value={config[o.key]} editable={isHost} onChange={(v) => send({ type: 'ROOM/SET_CONFIG', key: o.key, value: v })} />
                 ))}
             </div>
           </Card>
         </div>
+
+        {supportsCustomContent(game.slug) && <ContentPackPanel slug={game.slug} config={config} editable={isHost} send={send} />}
 
         <div className="sticky bottom-3 z-20 rounded-[28px] border border-line bg-obsidian/85 p-2 shadow-[0_-10px_30px_rgba(0,0,0,.45)] backdrop-blur">
           {isHost ? (
@@ -385,6 +409,65 @@ export function SessionScoreboard() {
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+/** Painel do Editor Universal no lobby: modo de conteúdo + seleção dos pacotes do anfitrião. */
+function ContentPackPanel({ slug, config, editable, send }: { slug: GameSlug; config: GameConfig; editable: boolean; send: (a: { type: string; [k: string]: unknown }) => void }) {
+  useCustomPacks();
+  const [open, setOpen] = useState(false);
+  const mode = packModeOf(config);
+  const mine = packsFor(slug);
+  const selected = selectedPackIds(config).filter((id) => mine.some((p) => p.id === id));
+  const toggle = (id: string) => {
+    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
+    send({ type: 'ROOM/SET_CONFIG', key: 'customPackIds', value: next.join(',') });
+  };
+  const modeLabel = PACK_MODE_OPTION.options?.find((o) => o.value === mode)?.label;
+  return (
+    <Card>
+      <SectionTitle
+        right={
+          <Button size="sm" variant="secondary" icon={<Library size={16} />} onClick={() => setOpen(true)}>
+            Meus Pacotes
+          </Button>
+        }
+      >
+        Conteúdo personalizado
+      </SectionTitle>
+      {editable ? (
+        <div className="grid gap-3">
+          <ConfigField opt={PACK_MODE_OPTION} value={mode} editable onChange={(v) => send({ type: 'ROOM/SET_CONFIG', key: 'packMode', value: v })} />
+          {mode !== 'official' && (
+            <div className="grid gap-2">
+              <span className="text-sm font-semibold text-white/80">Pacotes desta partida {selected.length === 0 && mine.length > 0 && <span className="text-xs font-normal text-white/65">(nenhum marcado = todos)</span>}</span>
+              {mine.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-line p-3 text-sm text-white/70">Você ainda não tem pacotes para este jogo. Toque em “Meus Pacotes” para criar.</div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {mine.map((p) => {
+                    const on = selected.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => toggle(p.id)}
+                        className={cn('inline-flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm font-semibold transition', on ? 'border-brand-purple bg-brand-purple/20 text-white' : 'border-line text-white/75')}
+                      >
+                        {on && <Check size={14} />} {p.name} <span className="text-xs text-white/60">({p.lines.length})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-white/80">{modeLabel}. Você também pode montar seus próprios pacotes para quando for o anfitrião.</p>
+      )}
+      <UniversalContentEditor open={open} onClose={() => setOpen(false)} initialGame={slug} />
     </Card>
   );
 }

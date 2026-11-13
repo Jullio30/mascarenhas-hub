@@ -1,7 +1,7 @@
-import { Bomb, Dices, Drama, EyeOff, Flame, Fingerprint, KeyRound, ListOrdered, Music, Timer, Gamepad2, Users, VenetianMask, type LucideProps } from 'lucide-react';
+import { ArrowLeftRight, Bomb, Dices, Drama, EyeOff, Flame, Fingerprint, HelpCircle, KeyRound, ListOrdered, Music, PenLine, Phone, Scale, Target, Timer, Gamepad2, Users, VenetianMask, type LucideProps } from 'lucide-react';
 import type { GameAccent } from '../../types/game.types';
 
-const ICONS: Record<string, React.FC<LucideProps>> = { Timer, Drama, EyeOff, Flame, KeyRound, Music, Bomb, VenetianMask, Fingerprint, Dices, Users, ListOrdered };
+const ICONS: Record<string, React.FC<LucideProps>> = { Timer, Drama, EyeOff, Flame, KeyRound, Music, Bomb, VenetianMask, Fingerprint, Dices, Users, ListOrdered, HelpCircle, Phone, Target, PenLine, Scale, ArrowLeftRight };
 
 export function GameIcon({ name, ...props }: { name: string } & LucideProps) {
   const Icon = ICONS[name] ?? Gamepad2;

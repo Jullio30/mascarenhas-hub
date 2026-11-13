@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { CheckCircle2, Droplet, Music2, Send } from 'lucide-react';
 import type { GameMatchProps } from '../../types/game.types';
-import type { MusicState } from './logic';
-import { ROUND_MS, STAGE_MS, STAGE_POINTS } from './logic';
-import { SONGS } from '../../data/defaultPacks';
+import type { MusicState, MusicView } from './logic';
+import { QUIZ_MS, ROUND_MS, STAGE_MS, STAGE_POINTS } from './logic';
+import { DEFAULT_CATALOG } from '../../data/defaultPacks';
 import { Badge, Button, Card, Input, cn } from '../../components/ui';
 import { PlayerChip } from '../../components/shared/PlayerBits';
 import { PhaseTitle, TimerBar } from '../../components/shared/SyncTimer';
@@ -12,9 +12,14 @@ import { useSyncTimer } from '../../hooks/useSyncTimer';
 import { normalize } from '../../lib/textUtils';
 import { sfx } from '../../core/audio/sfx';
 
-const ALL_TITLES = Array.from(new Set(SONGS.map((s) => s.title))).sort((a, b) => a.localeCompare(b));
+const ALL_TITLES = Array.from(new Set(DEFAULT_CATALOG.songs.map((s) => s.title))).sort((a, b) => a.localeCompare(b));
 
-export default function AdivinheAMusica({ state: s, meId, players, presence, send }: GameMatchProps<MusicState>) {
+export default function AdivinheAMusica(props: GameMatchProps<MusicState, MusicView>) {
+  if (props.state.mode === 'quiz') return <QuizRound {...props} />;
+  return <SongRound {...props} />;
+}
+
+function SongRound({ state: s, meId, players, presence, send }: GameMatchProps<MusicState, MusicView>) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const mine = s.correct[meId];
@@ -185,6 +190,98 @@ function Clue({ n, title, children }: { n: number; title: string; children: Reac
         Dica {n} • {title}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Rodada de múltipla escolha (artista, informação, contexto, décadas, gêneros). */
+function QuizRound({ state: s, view, meId, players, presence, send }: GameMatchProps<MusicState, MusicView>) {
+  const [pending, setPending] = useState<number | null>(null);
+  const q = s.quiz;
+  const inRound = s.participants.includes(meId);
+  const myPick = view?.myPick ?? pending;
+  const answered = s.quizAnswered.includes(meId) || myPick !== null;
+  const result = s.quizResult;
+
+  usePhaseEffect(`${s.round}:${s.phase}`, () => {
+    setPending(null);
+    if (s.phase === 'ROUND_ACTIVE') sfx.reveal();
+    if (s.phase === 'ROUND_SUMMARY') (s.correct[meId] ? sfx.success() : sfx.buzzer());
+  });
+
+  if (!q) return null;
+  return (
+    <div className="mx-auto grid w-full max-w-3xl gap-5">
+      <Card className="grid gap-4 text-center" glow={s.phase === 'ROUND_SUMMARY' ? 'green' : 'purple'}>
+        <div className="flex justify-center">
+          <Badge color="pink">
+            <Music2 size={12} /> {q.kindLabel}
+          </Badge>
+        </div>
+        <h2 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{q.question}</h2>
+        {s.phase === 'ROUND_ACTIVE' && <TimerBar endsAt={s.endsAt} totalMs={QUIZ_MS} color="purple" />}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {q.options.map((opt, i) => {
+            const correct = result?.correctIndex === i;
+            const mine = myPick === i;
+            const pickers = result ? Object.entries(result.picks).filter(([, v]) => v === i).map(([id]) => players.find((p) => p.id === id)) : [];
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={!inRound || answered || s.phase !== 'ROUND_ACTIVE'}
+                onClick={() => {
+                  setPending(i);
+                  send({ type: 'QUIZ_ANSWER', index: i });
+                  sfx.click();
+                }}
+                className={cn(
+                  'flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl border-2 px-3 py-2 font-semibold transition',
+                  result ? (correct ? 'border-arcade-green bg-arcade-green/15' : mine ? 'border-arcade-red bg-arcade-red/10' : 'border-line opacity-60') : mine ? 'border-brand-pink bg-brand-pink/15' : 'border-line bg-white/[.03] enabled:hover:border-brand-pink/60',
+                )}
+              >
+                <span>{opt}</span>
+                {pickers.length > 0 && (
+                  <span className="flex flex-wrap justify-center gap-1 text-xs font-normal text-white/75">{pickers.map((p) => p?.nickname).join(', ')}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {s.phase === 'ROUND_ACTIVE' && (
+          <p className="text-sm text-white/75">{answered ? 'Resposta registrada! Aguardando os demais…' : inRound ? 'Escolha uma alternativa — quanto mais rápido, mais pontos.' : 'Você está assistindo.'}</p>
+        )}
+        {result && <p className="rounded-2xl bg-white/[.04] p-3 text-sm text-white/85 animate-rise">{result.note}</p>}
+      </Card>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {s.participants.map((id) => {
+          const ok = s.correct[id];
+          return (
+            <PlayerChip
+              key={id}
+              compact
+              status={presence[id] ?? 'disconnected'}
+              player={players.find((p) => p.id === id)}
+              highlight={ok ? 'green' : undefined}
+              right={
+                s.phase === 'ROUND_SUMMARY' ? (
+                  ok ? (
+                    <Badge color="green">
+                      {s.firstBlood === id && <Droplet size={12} />} +{ok.points}
+                    </Badge>
+                  ) : (
+                    <Badge color="gray">0</Badge>
+                  )
+                ) : s.quizAnswered.includes(id) ? (
+                  <Badge color="purple">respondeu</Badge>
+                ) : null
+              }
+            />
+          );
+        })}
+      </div>
+      {s.phase === 'ROUND_SUMMARY' && <PhaseTitle title="" sub="Próxima rodada em instantes…" />}
     </div>
   );
 }

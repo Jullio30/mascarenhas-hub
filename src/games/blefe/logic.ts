@@ -1,10 +1,11 @@
 import type { BasePublicState, EngineCtx, GameConfig, GameDraft, GameEngine, Player } from '../../types/game.types';
-import { cfgNum, cfgStr, pickUnused, shuffle } from '../../core/engine/helpers';
+import { cfgNum, customContent, drawFromBag, pick, pickUnused, shuffle } from '../../core/engine/helpers';
 import { capitalizeFirst, isSameAnswer, normalizeAnswer, sanitizeShortText } from '../../lib/textUtils';
 import { fetchOnThisDay, fetchRandomPokemon } from '../../services/externalApis';
 import { FALLBACK_POKEMON } from '../../data/fallbackCatalogs/pokemon';
 import { pushNotice, type PrivateNotice } from '../_shared/notice';
-import { BLEFE_CATALOG, BLEFE_CATEGORY_LABEL, historyBlefeQuestion, pokemonBlefeQuestion, type BlefeCategory, type BlefeQuestion } from './blefeCatalog';
+import type { CustomItem } from '../../types/game.types';
+import { BLEFE_CATALOG, BLEFE_CATEGORY_LABEL, BLEFE_THEMES, historyBlefeQuestion, pokemonBlefeQuestion, type BlefeCategory, type BlefeQuestion } from './blefeCatalog';
 
 export type BlefePhase = 'QUESTION_INTRO' | 'WRITING_BLUFFS' | 'VOTING' | 'DRAMATIC_REVEAL' | 'ROUND_SCOREBOARD' | 'FINISHED';
 
@@ -52,7 +53,17 @@ export interface BlefeSecret {
   options: SecretOption[];
   votes: Record<string, string>;
   notices: Record<string, PrivateNotice>;
+  /** Temas da partida (modo de seleção já aplicado) e a "shuffle bag" sem reposição do modo Selecionados. */
+  themes?: ThemeKey[];
+  themeMode?: ThemeMode;
+  themeBag?: ThemeKey[];
+  lastTheme?: ThemeKey | null;
+  /** Perguntas dos pacotes personalizados do anfitrião. */
+  custom?: BlefeQuestion[];
 }
+
+export type ThemeMode = 'random' | 'selected' | 'fixed';
+type ThemeKey = BlefeCategory | 'misto';
 
 export interface BlefeView {
   myBluff: string | null;
@@ -80,16 +91,62 @@ function isTruth(text: string, q: BlefeQuestion) {
   return [q.trueAnswer, ...q.acceptedSynonyms].some((t) => isSameAnswer(text, t));
 }
 
-function nextQuestion(d: Draft, ctx: EngineCtx): BlefeQuestion {
-  while (d.sec.queue.length) {
-    const q = d.sec.queue.shift()!;
-    if (!ctx.isUsed(q.id)) {
-      ctx.markUsed(q.id);
-      return q;
-    }
+/** Converte linhas "Pergunta | Resposta | mentira…" do Editor Universal em cartas do Blefe. */
+export function customBlefeQuestions(items: CustomItem[], rng: () => number): BlefeQuestion[] {
+  return items
+    .filter((it) => it.parts[1])
+    .map((it) => {
+      const own = it.parts.slice(2, 5).filter(Boolean);
+      const filler = shuffle(BLEFE_CATALOG, rng).flatMap((q) => q.houseBluffs);
+      const bluffs = [...own, ...filler].filter((b, i, arr) => !isSameAnswer(b, it.parts[1]) && arr.findIndex((x) => isSameAnswer(x, b)) === i).slice(0, 3);
+      return {
+        id: it.id,
+        category: 'custom' as const,
+        question: it.text,
+        trueAnswer: it.parts[1],
+        acceptedSynonyms: [],
+        houseBluffs: [bluffs[0], bluffs[1], bluffs[2]] as [string, string, string],
+        factExplanation: 'Pergunta do pacote personalizado do anfitrião.',
+      };
+    });
+}
+
+function poolFor(d: Draft, theme: ThemeKey): BlefeQuestion[] {
+  const custom = d.sec.custom ?? [];
+  if (theme === 'custom') return custom;
+  if (theme === 'misto') return [...BLEFE_CATALOG, ...custom];
+  return BLEFE_CATALOG.filter((q) => q.category === theme);
+}
+
+/** Tema da rodada conforme o modo: aleatório (evita repetir o anterior), selecionados (sem reposição) ou fixo. */
+function nextTheme(d: Draft, ctx: EngineCtx): ThemeKey {
+  const sec = d.sec;
+  const themes = sec.themes?.length ? sec.themes : (['misto'] as ThemeKey[]);
+  let theme: ThemeKey;
+  if (sec.themeMode === 'selected') {
+    const drawn = drawFromBag(sec.themeBag ?? [], themes, ctx.rng, sec.lastTheme ?? undefined);
+    sec.themeBag = drawn.bag;
+    theme = drawn.item;
+  } else if (sec.themeMode === 'random') {
+    const options = themes.length > 1 ? themes.filter((t) => t !== sec.lastTheme) : themes;
+    theme = pick(options, ctx.rng);
+  } else {
+    theme = themes[0];
   }
-  const cat = cfgStr(ctx, 'category', 'misto');
-  const pool = cat === 'misto' ? BLEFE_CATALOG : BLEFE_CATALOG.filter((q) => q.category === cat);
+  sec.lastTheme = theme;
+  return theme;
+}
+
+function nextQuestion(d: Draft, ctx: EngineCtx): BlefeQuestion {
+  const theme = nextTheme(d, ctx);
+  // perguntas dinâmicas (APIs) entram quando o tema delas for sorteado
+  const idx = d.sec.queue.findIndex((q) => !ctx.isUsed(q.id) && (theme === 'misto' || q.category === theme));
+  if (idx >= 0) {
+    const [q] = d.sec.queue.splice(idx, 1);
+    ctx.markUsed(q.id);
+    return q;
+  }
+  const pool = poolFor(d, theme);
   return pickUnused(pool.length ? pool : BLEFE_CATALOG, (q) => q.id, ctx);
 }
 
@@ -130,7 +187,7 @@ function buildOptions(d: Draft, ctx: EngineCtx) {
     opts.push({ optionId: '', text: capitalizeFirst(hb), norm: normalizeAnswer(hb), isTrue: false, isHouse: true, authorPlayerIds: [] });
   }
   // último recurso: distratores de outras cartas da mesma categoria (nunca menos de 4 opções)
-  for (const other of shuffle(BLEFE_CATALOG.filter((x) => x.category === q.category && x.id !== q.id), ctx.rng)) {
+  for (const other of shuffle(BLEFE_CATALOG.filter((x) => (q.category === 'custom' || x.category === q.category) && x.id !== q.id), ctx.rng)) {
     if (opts.length >= 3) break;
     const hb = other.houseBluffs[0];
     if (opts.some((o) => isSameAnswer(o.text, hb)) || isTruth(hb, q)) continue;
@@ -197,7 +254,16 @@ export function createBlefe(players: Player[], _config: unknown, ctx: EngineCtx)
     endsAt: null,
     participants: players.map((p) => p.id),
   } as unknown as BlefeState;
-  const d: Draft = { pub, sec: { question: BLEFE_CATALOG[0], queue: external, bluffs: {}, suggestions: {}, options: [], votes: {}, notices: {} } };
+  const { mode, items } = customContent(ctx);
+  const custom = customBlefeQuestions(items, ctx.rng);
+  const themeMode = themeModeOf(ctx.config);
+  let themes = themesFor(ctx.config);
+  if (custom.length && mode === 'custom') themes = ['custom'];
+  else if (custom.length && mode === 'mixed' && themeMode !== 'fixed') themes = [...themes, 'custom'];
+  const d: Draft = {
+    pub,
+    sec: { question: BLEFE_CATALOG[0], queue: external, bluffs: {}, suggestions: {}, options: [], votes: {}, notices: {}, themes, themeMode, themeBag: [], lastTheme: null, custom },
+  };
   startRound(d, ctx);
   return d;
 }
@@ -298,13 +364,36 @@ export const blefeEngine: GameEngine<BlefeState, BlefeSecret> = {
   },
 };
 
+export function themeModeOf(config: GameConfig): ThemeMode {
+  const m = config.themeMode;
+  return m === 'selected' || m === 'fixed' ? m : 'random';
+}
+
+/** Lista de temas oficiais usados na partida conforme o modo escolhido pelo anfitrião. */
+export function themesFor(config: GameConfig): ThemeKey[] {
+  const mode = themeModeOf(config);
+  if (mode === 'fixed') {
+    const c = String(config.category ?? 'misto');
+    return [(c === 'misto' || (BLEFE_THEMES as readonly string[]).includes(c) ? c : 'misto') as ThemeKey];
+  }
+  if (mode === 'selected') {
+    const list = String(config.themes ?? '')
+      .split(',')
+      .filter((t): t is (typeof BLEFE_THEMES)[number] => (BLEFE_THEMES as readonly string[]).includes(t));
+    return list.length ? list : [...BLEFE_THEMES];
+  }
+  return [...BLEFE_THEMES];
+}
+
 /** Anfitrião: gera algumas perguntas extras via PokéAPI e Wikipédia (com fallback local). */
 export async function prepareBlefe(config: GameConfig): Promise<BlefeQuestion[]> {
-  const cat = String(config.category ?? 'misto') as BlefeCategory | 'misto';
+  const themes = themesFor(config);
+  const has = (t: BlefeCategory) => themes.includes(t) || themes.includes('misto');
+  const cat = themes.length === 1 && themes[0] !== 'misto' ? (themes[0] as BlefeCategory) : 'misto';
   const rng = Math.random;
   const out: BlefeQuestion[] = [];
   const jobs: Promise<void>[] = [];
-  if (cat === 'misto' || cat === 'geek') {
+  if (has('geek')) {
     jobs.push(
       fetchRandomPokemon(3, rng).then((list) => {
         const pool = list.length ? list : shuffle(FALLBACK_POKEMON, rng).slice(0, 2);
@@ -315,7 +404,7 @@ export async function prepareBlefe(config: GameConfig): Promise<BlefeQuestion[]>
       }),
     );
   }
-  if (cat === 'misto' || cat === 'historia') {
+  if (has('historia')) {
     jobs.push(
       fetchOnThisDay().then((events) => {
         const q = events.length ? historyBlefeQuestion(events[Math.floor(rng() * events.length)], rng) : null;
@@ -324,8 +413,6 @@ export async function prepareBlefe(config: GameConfig): Promise<BlefeQuestion[]>
     );
   }
   await Promise.all(jobs.map((j) => j.catch(() => undefined)));
-  // as perguntas dinâmicas entram em rodadas aleatórias no meio do catálogo local
-  const rounds = Number(config.rounds) || 5;
-  const local = shuffle(cat === 'misto' ? BLEFE_CATALOG : BLEFE_CATALOG.filter((q) => q.category === cat), rng).slice(0, rounds);
-  return shuffle([...out, ...local], rng).slice(0, Math.max(rounds, out.length));
+  // as perguntas dinâmicas entram na fila e são usadas quando o tema delas for sorteado
+  return shuffle(out, rng);
 }

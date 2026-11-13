@@ -1,5 +1,5 @@
 import type { BasePublicState, EngineCtx, GameDraft, GameEngine, Player } from '../../types/game.types';
-import { cfgBool, cfgNum, pickUnused, shuffle } from '../../core/engine/helpers';
+import { cfgBool, cfgNum, customContent, mergePools, pickUnused, shuffle } from '../../core/engine/helpers';
 import { normalizeWord, sanitizeShortText } from '../../lib/textUtils';
 
 export const CONTEST_MS = 6_000;
@@ -38,7 +38,12 @@ export interface CatState extends BasePublicState {
   bonuses: Record<string, number>;
 }
 
-type Draft = GameDraft<CatState, Record<string, never>>;
+/** Segredo mínimo: só a lista de categorias da partida (oficiais e/ou pacotes personalizados do anfitrião). */
+export interface CatSecret {
+  pool?: { id: string; text: string }[];
+}
+
+type Draft = GameDraft<CatState, CatSecret>;
 
 function alive(pub: CatState) {
   return pub.order.filter((id) => (pub.lives[id] ?? 0) > 0);
@@ -98,7 +103,8 @@ function endRound(d: Draft, ctx: EngineCtx) {
 
 function startRound(d: Draft, ctx: EngineCtx) {
   const { pub } = d;
-  const prompt = pickUnused(ctx.catalog.categories, (c) => 'cat:' + c.id, ctx);
+  const pool = d.sec?.pool?.length ? d.sec.pool : ctx.catalog.categories;
+  const prompt = pickUnused(pool, (c) => 'cat:' + c.id, ctx);
   const online = pub.participants.filter((id) => ctx.isOnline(id));
   const order = shuffle(online.length >= 2 ? online : pub.participants, ctx.rng);
   const lives: Record<string, number> = {};
@@ -129,12 +135,14 @@ export function createCategorias(players: Player[], _config: unknown, ctx: Engin
     totalRounds: cfgNum(ctx, 'rounds', 3),
     participants: players.map((p) => p.id),
   } as CatState;
-  const d: Draft = { pub, sec: {} };
+  const { mode, items } = customContent(ctx);
+  const pool = mergePools(ctx.catalog.categories, items.map((it) => ({ id: it.id, text: it.text })), mode);
+  const d: Draft = { pub, sec: { pool } };
   startRound(d, ctx);
   return d;
 }
 
-export const categoriasEngine: GameEngine<CatState, Record<string, never>> = {
+export const categoriasEngine: GameEngine<CatState, CatSecret> = {
   action(d, from, a, ctx) {
     const { pub } = d;
     if (a.type === 'WORD') {

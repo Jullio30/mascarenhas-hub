@@ -1,6 +1,6 @@
 import type { BasePublicState, EngineCtx, GameDraft, GameEngine, Player } from '../../types/game.types';
-import { cfgNum, cfgStr, pickUnused } from '../../core/engine/helpers';
-import { MOST_LIKELY_CATALOG } from './mostLikelyCatalog';
+import { cfgNum, cfgStr, customContent, mergePools, pickUnused } from '../../core/engine/helpers';
+import { MOST_LIKELY_CATALOG, MOST_LIKELY_VIBE_GROUPS, type MostLikelyPrompt } from './mostLikelyCatalog';
 
 export type QmpPhase = 'SECRET_VOTING' | 'SIMULTANEOUS_REVEAL' | 'FINISHED';
 
@@ -21,6 +21,8 @@ export interface QmpSecret {
   votes: Record<string, string>;
   /** chaves de idempotência `scored_round_${n}` */
   scored: string[];
+  /** Perguntas da partida (oficiais filtradas por intensidade + pacotes personalizados do anfitrião). */
+  pool?: { id: string; text: string }[];
 }
 
 export interface QmpView {
@@ -54,9 +56,8 @@ export function scoreRound(participants: string[], votes: Record<string, string>
 }
 
 function startRound(d: Draft, ctx: EngineCtx) {
-  const vibe = cfgStr(ctx, 'vibe', 'todas');
-  const pool = vibe === 'todas' ? MOST_LIKELY_CATALOG : MOST_LIKELY_CATALOG.filter((p) => p.vibe === vibe);
-  const prompt = pickUnused(pool.length ? pool : MOST_LIKELY_CATALOG, (p) => p.id, ctx);
+  const pool = d.sec.pool?.length ? d.sec.pool : MOST_LIKELY_CATALOG;
+  const prompt = pickUnused(pool, (p) => p.id, ctx);
   d.sec.votes = {};
   Object.assign(d.pub, {
     phase: 'SECRET_VOTING',
@@ -106,7 +107,11 @@ export function createQmp(players: Player[], _config: unknown, ctx: EngineCtx): 
     winners: null,
     pointsDelta: {},
   };
-  const d: Draft = { pub, sec: { votes: {}, scored: [] } };
+  const vibes = MOST_LIKELY_VIBE_GROUPS[cfgStr(ctx, 'vibe', 'todas')] ?? MOST_LIKELY_VIBE_GROUPS.todas;
+  const official: MostLikelyPrompt[] = MOST_LIKELY_CATALOG.filter((p) => vibes.includes(p.vibe));
+  const { mode, items } = customContent(ctx);
+  const pool = mergePools<{ id: string; text: string }>(official.length ? official : MOST_LIKELY_CATALOG, items.map((it) => ({ id: it.id, text: it.text })), mode);
+  const d: Draft = { pub, sec: { votes: {}, scored: [], pool: pool.map((p) => ({ id: p.id, text: p.text })) } };
   startRound(d, ctx);
   return d;
 }
