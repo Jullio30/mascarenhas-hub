@@ -82,6 +82,13 @@ export default function App() {
     };
   }, []);
 
+  // Troca de tela (início → lobby → partida → pódio) sempre começa do topo:
+  // sem isso o lobby abria rolado até onde estava o botão "Criar sala", escondendo o código da sala.
+  const screen = booting ? 'boot' : !snapshot ? 'home' : snapshot.status;
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [screen]);
+
   let content: ReactNode;
   if (booting) content = <Splash text="Carregando o Mascarenhas Hub…" />;
   else if (!snapshot) content = connection === 'connecting' ? <Splash text="Entrando na sala…" /> : <HomeScreen />;

@@ -74,7 +74,7 @@ export function RoomCodePanel() {
   return (
     <Card className="flex flex-col items-center gap-4 text-center" glow="purple">
       <div className="text-xs font-bold uppercase tracking-[.25em] text-white/80">Código da sala</div>
-      <div className="font-arcade text-5xl tracking-[.2em] sm:text-6xl">{streamer ? '••••••' : <span className="arcade-title">{code}</span>}</div>
+      <div className="whitespace-nowrap font-arcade text-[clamp(2rem,11vw,3rem)] tracking-[.16em] sm:text-6xl sm:tracking-[.2em]">{streamer ? '••••••' : <span className="arcade-title">{code}</span>}</div>
       {mode === 'local' && <Badge color="amber">Modo Local: convide abrindo novas abas neste navegador</Badge>}
       <div className="grid w-full grid-cols-3 gap-2">
         <Button variant="secondary" size="sm" onClick={copy} icon={<Copy size={16} />}>

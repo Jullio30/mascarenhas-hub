@@ -310,6 +310,10 @@ export class SupabaseRoomTransport implements RoomTransport {
     if (data.session) return;
     const { error } = await this.sb.auth.signInAnonymously();
     if (error) {
+      // 429: limite de logins anônimos por IP do Supabase (ex.: muita gente entrando pela mesma rede Wi-Fi).
+      if (error.status === 429 || /rate limit/i.test(error.message)) {
+        throw new Error('Muitas entradas seguidas a partir desta rede. Aguarde alguns minutos e tente de novo (ou use os dados móveis).');
+      }
       throw new Error(
         'Falha no login anônimo do Supabase. Ative "Anonymous Sign-Ins" em Authentication -> Providers. Detalhe: ' + error.message,
       );

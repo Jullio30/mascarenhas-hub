@@ -33,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     sm: 'min-h-10 px-3 text-sm rounded-xl',
     md: 'min-h-12 px-5 text-base rounded-2xl',
     lg: 'min-h-14 px-6 text-lg rounded-2xl',
-    xl: 'min-h-20 px-8 text-2xl rounded-3xl',
+    xl: 'min-h-16 px-5 text-xl leading-tight rounded-3xl sm:min-h-20 sm:px-8 sm:text-2xl',
   };
   return (
     <button
