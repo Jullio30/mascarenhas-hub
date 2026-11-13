@@ -159,7 +159,8 @@ export class RoomAuthority {
       switch (t) {
         case 'ROOM/SELECT_GAME': {
           const slug = action.slug as GameSlug;
-          if (this.snap.status !== 'LOBBY' || !getGame(slug)) return;
+          // durante "Preparando desafios…" a escolha fica travada (trocar aqui cancelaria o início)
+          if (this.snap.status !== 'LOBBY' || this.starting || !getGame(slug)) return;
           this.snap.gameSlug = slug;
           return this.commit(false);
         }

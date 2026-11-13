@@ -253,7 +253,7 @@ export default function Lobby() {
               const sel = g.slug === snapshot.gameSlug;
               const a = ACCENT[g.accentColor];
               const choose = () => {
-                if (!isHost) return;
+                if (!isHost || snapshot.preparing) return;
                 send({ type: 'ROOM/SELECT_GAME', slug: g.slug as GameSlug });
                 sfx.click();
               };
@@ -262,7 +262,7 @@ export default function Lobby() {
                   key={g.slug}
                   role="button"
                   tabIndex={isHost ? 0 : -1}
-                  aria-disabled={!isHost}
+                  aria-disabled={!isHost || Boolean(snapshot.preparing)}
                   aria-pressed={sel}
                   onClick={choose}
                   onKeyDown={(e) => {
