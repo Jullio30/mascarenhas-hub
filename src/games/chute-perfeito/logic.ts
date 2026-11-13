@@ -114,7 +114,7 @@ export function createChute(players: Player[], _config: unknown, ctx: EngineCtx)
   const pool = mergePools(CHUTE_CATALOG, custom, mode);
   const pub = {
     round: 1,
-    totalRounds: cfgNum(ctx, 'rounds', 8),
+    totalRounds: Math.max(1, Math.min(cfgNum(ctx, 'rounds', 8), pool.length)), // sem repetir pergunta com pacote pequeno
     endsAt: null,
     participants: players.map((p) => p.id),
   } as ChuteState;

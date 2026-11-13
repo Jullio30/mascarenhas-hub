@@ -216,7 +216,7 @@ export function createIc(players: Player[], _config: unknown, ctx: EngineCtx): D
   participants.forEach((id) => (canVote[id] = true));
   const pub = {
     round: 1,
-    totalRounds: cfgNum(ctx, 'rounds', 3),
+    totalRounds: Math.max(1, Math.min(cfgNum(ctx, 'rounds', 3), pool.length)),
     endsAt: null,
     participants,
     canVote,

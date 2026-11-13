@@ -131,7 +131,7 @@ export function createWw(players: Player[], _config: unknown, ctx: EngineCtx): D
   const { mode, items } = customContent(ctx);
   const official = WHO_WROTE_QUESTIONS.map((t, i) => ({ id: `ww:${i}`, text: t }));
   const pool = mergePools(official, items.map((it) => ({ id: it.id, text: it.text })), mode);
-  const pub = { round: 1, totalRounds: cfgNum(ctx, 'rounds', 5), endsAt: null, participants: players.map((p) => p.id) } as WwState;
+  const pub = { round: 1, totalRounds: Math.max(1, Math.min(cfgNum(ctx, 'rounds', 5), pool.length)), endsAt: null, participants: players.map((p) => p.id) } as WwState;
   const d: Draft = { pub, sec: { answers: {}, anonMap: {}, guesses: {}, pool, scored: [] } };
   startRound(d, ctx);
   return d;

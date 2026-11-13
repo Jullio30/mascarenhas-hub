@@ -111,6 +111,8 @@ export function createQmp(players: Player[], _config: unknown, ctx: EngineCtx): 
   const official: MostLikelyPrompt[] = MOST_LIKELY_CATALOG.filter((p) => vibes.includes(p.vibe));
   const { mode, items } = customContent(ctx);
   const pool = mergePools<{ id: string; text: string }>(official.length ? official : MOST_LIKELY_CATALOG, items.map((it) => ({ id: it.id, text: it.text })), mode);
+  // "Apenas meus pacotes" com poucos itens: não repete pergunta só para completar as rodadas.
+  pub.totalRounds = Math.max(1, Math.min(pub.totalRounds, pool.length));
   const d: Draft = { pub, sec: { votes: {}, scored: [], pool: pool.map((p) => ({ id: p.id, text: p.text })) } };
   startRound(d, ctx);
   return d;
