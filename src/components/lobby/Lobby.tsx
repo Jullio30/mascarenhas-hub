@@ -31,9 +31,11 @@ const matchesFilter = (g: (typeof REGISTERED_GAMES)[number], f: GameFilter) =>
 
 export function inviteLink(code: string) {
   const url = new URL(window.location.href);
+  const local = url.searchParams.get('local') === '1';
   url.search = '';
   url.hash = '';
   url.searchParams.set('room', code);
+  if (local) url.searchParams.set('local', '1');
   return url.toString();
 }
 

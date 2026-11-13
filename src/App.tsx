@@ -67,7 +67,8 @@ export default function App() {
         const prefs = useHubStore.getState().prefs;
         if (room.length === 6 && prefs.nickname.length >= 2) {
           try {
-            await session.joinRoom(isSupabaseConfigured ? 'supabase' : 'local', room, { nickname: prefs.nickname, avatar: prefs.avatar });
+            const local = !isSupabaseConfigured || new URL(window.location.href).searchParams.get('local') === '1';
+            await session.joinRoom(local ? 'local' : 'supabase', room, { nickname: prefs.nickname, avatar: prefs.avatar });
           } catch (err) {
             useHubStore.getState().toast((err as Error).message, 'error');
           }

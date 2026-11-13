@@ -141,6 +141,9 @@ class SessionManager {
     storageFor(t.mode).setItem(SESSION_KEY, JSON.stringify({ playerId, joinedAt, code }));
     const url = new URL(window.location.href);
     url.searchParams.set('room', code);
+    // Sala do Modo Local só existe neste navegador: marca o link para a outra aba não procurar no Supabase.
+    if (t.mode === 'local') url.searchParams.set('local', '1');
+    else url.searchParams.delete('local');
     window.history.replaceState(null, '', url.toString());
 
     await t.connect(code, playerId, joinedAt, {
@@ -408,6 +411,7 @@ class SessionManager {
       this.unbindGlobalListeners();
       const url = new URL(window.location.href);
       url.searchParams.delete('room');
+      url.searchParams.delete('local');
       window.history.replaceState(null, '', url.toString());
     }
   }

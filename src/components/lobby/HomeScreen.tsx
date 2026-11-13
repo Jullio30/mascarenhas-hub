@@ -65,7 +65,7 @@ export default function HomeScreen() {
     const room = new URL(window.location.href).searchParams.get('room');
     if (room) {
       setCode(normalizeRoomCode(room));
-      if (!isSupabaseConfigured) setMode('local');
+      if (!isSupabaseConfigured || new URL(window.location.href).searchParams.get('local') === '1') setMode('local');
       setInviteModal(true);
     }
   }, []);
