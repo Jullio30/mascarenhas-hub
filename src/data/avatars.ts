@@ -18,7 +18,8 @@ export const AVATARS: AvatarDef[] = [
   { id: 'dragon', emoji: '🐲', color: '#22C55E', label: 'Dragão' },
   { id: 'unicorn', emoji: '🦄', color: '#F472B6', label: 'Unicórnio' },
   { id: 'octopus', emoji: '🐙', color: '#EF4444', label: 'Polvo' },
-  { id: 'capybara', emoji: '🦫', color: '#B45309', label: 'Capivara' },
+  // id mantido por compatibilidade com perfis salvos; 🦫 (Emoji 13) não renderiza no Windows 10/Android antigo.
+  { id: 'capybara', emoji: '🐻', color: '#B45309', label: 'Urso' },
   { id: 'penguin', emoji: '🐧', color: '#38BDF8', label: 'Pinguim' },
   { id: 'monkey', emoji: '🐵', color: '#D97706', label: 'Macaco' },
   { id: 'shark', emoji: '🦈', color: '#0EA5E9', label: 'Tubarão' },

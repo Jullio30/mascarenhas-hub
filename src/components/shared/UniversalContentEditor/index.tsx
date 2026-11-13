@@ -74,7 +74,7 @@ export default function UniversalContentEditor({ open, onClose, initialGame }: {
             {cloud === 'synced' ? ' e sincronizados na sua conta' : ''} e o anfitrião escolhe no lobby quais usar.
           </p>
           <div className="flex flex-wrap items-end gap-2">
-            <label className="grid flex-1 gap-1 text-sm font-semibold text-white/80">
+            <label className="grid min-w-[12rem] flex-1 gap-1 text-sm font-semibold text-white/80">
               Jogo
               <select className="min-h-12 rounded-2xl border border-line bg-obsidian/70 px-3 text-base text-white" value={filter} onChange={(e) => setFilter(e.target.value as GameSlug | 'all')}>
                 <option value="all">Todos os jogos</option>

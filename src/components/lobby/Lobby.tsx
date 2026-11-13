@@ -225,7 +225,11 @@ export default function Lobby() {
 
   return (
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="grid content-start gap-5">
+      <div className="grid min-w-0 content-start gap-5">
+        {/* No celular/tablet o código vem primeiro: quem chega precisa dele sem rolar 16 jogos. */}
+        <div className="lg:hidden">
+          <RoomCodePanel />
+        </div>
         <Card>
           <SectionTitle right={!isHost && <span className="text-xs text-white/70">Somente {host?.nickname ?? 'o anfitrião'} escolhe o jogo</span>}>Escolha o jogo</SectionTitle>
           <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -340,7 +344,9 @@ export default function Lobby() {
       </div>
 
       <aside className="grid min-w-0 grid-cols-1 content-start gap-5">
-        <RoomCodePanel />
+        <div className="hidden lg:block">
+          <RoomCodePanel />
+        </div>
         <Card>
           <SectionTitle right={<Badge color="green">{onlineCount} online</Badge>}>Jogadores ({snapshot.players.length})</SectionTitle>
           <PlayerList showHostActions />

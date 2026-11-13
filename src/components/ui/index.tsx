@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 export function cn(...classes: (string | false | null | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -109,7 +110,9 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose, dismissable]);
   if (!open) return null;
-  return (
+  // Portal no <body>: ancestrais com transform/filter (animações, efeito CRT) criam um novo
+  // containing block e fariam o `fixed inset-0` ficar preso dentro do card em vez de cobrir a tela.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => dismissable && onClose?.()}>
       <div
         className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-line bg-surface p-5 animate-rise sm:rounded-3xl', wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}
@@ -127,7 +130,8 @@ export function Modal({
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

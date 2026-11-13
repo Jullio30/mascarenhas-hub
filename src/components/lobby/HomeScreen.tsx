@@ -115,7 +115,7 @@ export default function HomeScreen() {
               </span>
               <div className="min-w-0">
                 <div className="font-bold">{g.title}</div>
-                <div className="truncate text-xs text-white/80">{g.recommendedPlayers} jogadores</div>
+                <div className="truncate text-xs text-white/80">{g.minPlayers}–{g.maxPlayers} jogadores • ideal {g.recommendedPlayers}</div>
               </div>
             </div>
           ))}

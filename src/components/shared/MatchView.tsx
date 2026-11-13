@@ -1,4 +1,5 @@
 import { Component, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { RoomLogEntry } from '../../types/game.types';
 import { BarChart3, FastForward, History, Pause, Play, Square } from 'lucide-react';
 import { useRoom } from '../../hooks/useRoom';
@@ -94,7 +95,7 @@ function PauseOverlay() {
   const pause = snapshot?.pause;
   const rem = useSyncTimer(pause?.until ?? null);
   if (!pause) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
       <Card className="w-full max-w-sm text-center animate-pop" glow="purple">
         <Pause className="mx-auto mb-2 text-brand-purple" size={40} />
@@ -115,7 +116,8 @@ function PauseOverlay() {
           </div>
         )}
       </Card>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

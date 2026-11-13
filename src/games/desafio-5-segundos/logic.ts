@@ -9,7 +9,7 @@
 import type { BasePublicState, EngineCtx, GameDraft, GameEngine, Player } from '../../types/game.types';
 import type { FiveSecCategory, FiveSecPrompt } from '../../data/defaultPacks';
 import { cfgNum, cfgStr, customContent, mergePools, pickUnused, shuffle } from '../../core/engine/helpers';
-import { sanitizeShortText } from '../../lib/textUtils';
+import { normalize, sanitizeShortText } from '../../lib/textUtils';
 
 export type D5Phase = 'TURN_PREPARATION' | 'COUNTDOWN_ACTIVE' | 'PEER_VALIDATION' | 'ROUND_SUMMARY' | 'FINISHED';
 export type D10Prompt = Omit<FiveSecPrompt, 'category'> & { category: FiveSecCategory | 'Personalizado' };
@@ -95,7 +95,18 @@ function reveal(d: Draft, ctx: EngineCtx) {
 
 function toValidation(d: Draft, ctx: EngineCtx) {
   const { pub } = d;
-  pub.answers = pub.answers.map((a) => a ?? '').filter((a) => a.trim());
+  // Remove vazias e respostas repetidas do mesmo jogador (sem diferenciar maiúsculas/acentos):
+  // a mesma resposta digitada duas vezes não pode pontuar em dobro.
+  const seen = new Set<string>();
+  pub.answers = pub.answers
+    .map((a) => (a ?? '').trim())
+    .filter((a) => {
+      if (!a) return false;
+      const k = normalize(a) || a.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   if (pub.answers.length === 0) {
     pub.verdict = 'empty';
     pub.phase = 'ROUND_SUMMARY';
