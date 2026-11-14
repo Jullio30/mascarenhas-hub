@@ -100,12 +100,12 @@ export default function App() {
     <AppErrorBoundary>
       <div className="flex min-h-screen flex-col">
         <Header onLeave={snapshot ? () => session.leave() : undefined} />
+        <UpdateBanner />
         <main className="flex-1">{content}</main>
         <Footer />
       </div>
       <Toasts />
       <ReactionLayer />
-      <UpdateBanner />
       <CrtOverlay />
 
       <Modal open={connection === 'inactive'} dismissable={false} title="Sessão pausada por inatividade">

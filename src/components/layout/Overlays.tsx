@@ -56,7 +56,7 @@ export function ReactionLayer() {
 const VERSION_CHECK_MS = 5 * 60 * 1000;
 
 /**
- * Faixa "Nova versão disponível": verifica version.json ao abrir, a cada 5 minutos e sempre que a aba
+ * Faixa "Nova versão disponível" (abaixo do cabeçalho): verifica version.json ao abrir, a cada 5 minutos e sempre que a aba
  * volta a ficar visível. Não recarrega sozinho (o jogador decide); o F5 mantém a sala e a pontuação.
  */
 export function UpdateBanner() {
@@ -85,7 +85,8 @@ export function UpdateBanner() {
 
   if (!outdated) return null;
   return (
-    <div role="status" className="fixed inset-x-0 bottom-3 z-[70] flex justify-center px-4">
+    // Fica no fluxo, logo abaixo do cabeçalho (sticky): não cobre os botões do anfitrião no rodapé nem o conteúdo.
+    <div role="status" className="sticky top-16 z-20 flex justify-center px-4 pt-3">
       <div className="flex w-full max-w-md items-center gap-3 rounded-2xl border border-arcade-cyan/50 bg-surface2/95 px-4 py-3 shadow-xl backdrop-blur animate-rise">
         <RefreshCw size={20} className="shrink-0 text-arcade-cyan" aria-hidden />
         <div className="min-w-0 flex-1 text-sm">
