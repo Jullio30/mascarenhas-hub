@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Ban, Crown, Dices, FastForward, Flag, Pause, Rewind, RotateCw, ShieldCheck, Trophy, Zap, type LucideProps } from 'lucide-react';
 import type { GameMatchProps, Player } from '../../types/game.types';
 import type { SopState, TileType } from './logic';
-import { ANSWER_MS, BOARD_SIZE, EFFECT_MS, GAME_OVER_MS, ROLL_MS, STEAL_MS, TURN_BANNER_MS, tileAt } from './logic';
+import { ANSWER_MS, boardSizeOf, EFFECT_MS, GAME_OVER_MS, ROLL_MS, STEAL_MS, TURN_BANNER_MS, tileAt } from './logic';
 import { Badge, Button, Card, cn } from '../../components/ui';
 import { Avatar, nameOf } from '../../components/shared/PlayerBits';
 import { PhaseTitle, TimerBar } from '../../components/shared/SyncTimer';
@@ -23,26 +23,26 @@ const TILE_STYLE: Record<TileType, { icon: React.FC<LucideProps> | null; color: 
 
 const COLS = 6;
 /** Trilha em serpentina: linha de baixo 1→6, depois 12←7, 13→18… (desenhada de cima para baixo). */
-function serpentineRows(): number[][] {
+function serpentineRows(size: number): number[][] {
   const rows: number[][] = [];
-  for (let r = 0; r < BOARD_SIZE / COLS; r++) {
+  for (let r = 0; r < size / COLS; r++) {
     const row = Array.from({ length: COLS }, (_, i) => r * COLS + i + 1);
     rows.push(r % 2 === 0 ? row : row.reverse());
   }
   return rows.reverse();
 }
-const ROWS = serpentineRows();
 
 function Board({ s, players }: { s: SopState; players: Player[] }) {
   const byPos: Record<number, string[]> = {};
   s.participants.forEach((id) => (byPos[s.tokens[id].pos] ??= []).push(id));
   const highlight = s.effect ? s.effect.to : null;
+  const size = boardSizeOf(s.boardSize);
   return (
-    <div className="grid gap-1.5" role="grid" aria-label="Tabuleiro de 30 casas">
-      {ROWS.map((row, r) => (
+    <div className="grid gap-1.5" role="grid" aria-label={`Tabuleiro de ${size} casas`}>
+      {serpentineRows(size).map((row, r) => (
         <div key={r} className="grid grid-cols-6 gap-1.5">
           {row.map((n) => {
-            const t = tileAt(n);
+            const t = tileAt(n, size);
             const st = TILE_STYLE[t];
             const Icon = st.icon;
             // quem está na vez aparece sempre entre os peões visíveis
@@ -120,7 +120,7 @@ export default function SabeOuPerde({ state: s, meId, players, send }: GameMatch
         <div className="flex items-center justify-between">
           <span className="font-display font-bold">Tabuleiro</span>
           <Badge color="cyan">
-            <Crown size={12} /> Casa 30 vence
+            <Crown size={12} /> Casa {boardSizeOf(s.boardSize)} vence
           </Badge>
         </div>
         <Board s={s} players={players} />

@@ -1,14 +1,14 @@
 import type { BasePublicState, EngineCtx, GameConfig, GameDraft, GameEngine, Player } from '../../types/game.types';
-import { cfgStr, pickUnused, shuffle } from '../../core/engine/helpers';
+import { cfgNum, cfgStr, pickUnused, shuffle } from '../../core/engine/helpers';
 import { fetchCountries, fetchRandomPokemon } from '../../services/externalApis';
 import { FALLBACK_COUNTRIES } from '../../data/fallbackCatalogs/countries';
 import { FALLBACK_POKEMON } from '../../data/fallbackCatalogs/pokemon';
 import { TRIVIA_CATALOG, countryCapitalQuestion, countryCurrencyQuestion, pokemonTypeQuestion, type TriviaQuestion } from './triviaCatalog';
 
-// ---------- tabuleiro determinístico de 30 casas ----------
+// ---------- tabuleiros determinísticos (18, 24 ou 30 casas) ----------
 export type TileType = 'START' | 'NORMAL' | 'ADVANCE_2' | 'RETREAT_2' | 'EXTRA_TURN' | 'SKIP_TURN' | 'STEAL_POINTS' | 'SHIELD' | 'FINISH';
 
-const SPECIAL: Partial<Record<number, TileType>> = {
+const SPECIAL_30: Partial<Record<number, TileType>> = {
   1: 'START',
   4: 'ADVANCE_2', 14: 'ADVANCE_2', 23: 'ADVANCE_2',
   7: 'RETREAT_2', 17: 'RETREAT_2', 26: 'RETREAT_2',
@@ -18,8 +18,32 @@ const SPECIAL: Partial<Record<number, TileType>> = {
   6: 'SHIELD', 19: 'SHIELD',
   30: 'FINISH',
 };
-export const BOARD_SIZE = 30;
-export const tileAt = (pos: number): TileType => SPECIAL[pos] ?? 'NORMAL';
+const SPECIAL_24: Partial<Record<number, TileType>> = {
+  1: 'START',
+  4: 'ADVANCE_2', 14: 'ADVANCE_2', 20: 'ADVANCE_2',
+  7: 'RETREAT_2', 17: 'RETREAT_2', 22: 'RETREAT_2',
+  9: 'EXTRA_TURN', 18: 'EXTRA_TURN',
+  12: 'SKIP_TURN',
+  15: 'STEAL_POINTS', 21: 'STEAL_POINTS',
+  6: 'SHIELD', 19: 'SHIELD',
+  24: 'FINISH',
+};
+const SPECIAL_18: Partial<Record<number, TileType>> = {
+  1: 'START',
+  4: 'ADVANCE_2', 14: 'ADVANCE_2',
+  7: 'RETREAT_2', 16: 'RETREAT_2',
+  9: 'EXTRA_TURN',
+  12: 'SKIP_TURN',
+  10: 'STEAL_POINTS',
+  6: 'SHIELD',
+  18: 'FINISH',
+};
+const LAYOUTS: Record<number, Partial<Record<number, TileType>>> = { 18: SPECIAL_18, 24: SPECIAL_24, 30: SPECIAL_30 };
+export const BOARD_SIZES = [18, 24, 30] as const;
+export const DEFAULT_BOARD_SIZE = 30;
+/** Tamanho válido (múltiplo de 6 para a serpentina); estados antigos sem o campo usam 30. */
+export const boardSizeOf = (n: unknown): number => (LAYOUTS[Number(n)] ? Number(n) : DEFAULT_BOARD_SIZE);
+export const tileAt = (pos: number, size: number = DEFAULT_BOARD_SIZE): TileType => LAYOUTS[boardSizeOf(size)][pos] ?? 'NORMAL';
 
 export const STEAL_AMOUNT = 200;
 export const FINISH_BONUS = 500;
@@ -52,6 +76,8 @@ export interface SopState extends BasePublicState {
   currentId: string;
   isExtraTurn: boolean;
   turnCount: number;
+  /** Casas do tabuleiro (18, 24 ou 30). Opcional para estados salvos antes da opção existir. */
+  boardSize?: number;
   tokens: Record<string, SopToken>;
   dice: number | null;
   question: { id: string; category: string; text: string; options: string[] } | null;
@@ -80,7 +106,8 @@ export const ANSWER_MS = 20_000;
 export const STEAL_MS = 10_000;
 export const EFFECT_MS = 4_500;
 export const GAME_OVER_MS = 7_000;
-const MAX_TURNS_PER_PLAYER = 30; // trava de segurança contra partidas infinitas
+/** Trava de segurança contra partidas infinitas: no máximo "tamanho do tabuleiro" turnos por jogador. */
+const maxTurnsPerPlayer = (pub: SopState) => boardSizeOf(pub.boardSize);
 
 function label(pub: SopState) {
   pub.roundLabel = `Turno ${pub.turnCount}`;
@@ -125,7 +152,7 @@ function beginTurn(d: Draft, ctx: EngineCtx) {
   pub.stealTargets = null;
   pub.turnCount += 1;
   label(pub);
-  if (pub.turnCount > pub.turnOrder.length * MAX_TURNS_PER_PLAYER) {
+  if (pub.turnCount > pub.turnOrder.length * maxTurnsPerPlayer(pub)) {
     const leader = pub.turnOrder.filter((id) => present(ctx, id)).sort((a, b) => pub.tokens[b].pos - pub.tokens[a].pos)[0] ?? pub.currentId;
     return declareWinner(d, ctx, leader, 'Limite de turnos atingido: vence quem está mais perto da Coroa!');
   }
@@ -176,7 +203,7 @@ function declareWinner(d: Draft, ctx: EngineCtx, id: string, text: string) {
   pub.banner = text;
   pub.phase = 'GAME_OVER';
   pub.endsAt = ctx.now + GAME_OVER_MS;
-  ctx.log(`${nick(ctx, id)} chegou à Casa 30 e venceu!`);
+  ctx.log(`${nick(ctx, id)} chegou à Casa ${boardSizeOf(pub.boardSize)} e venceu!`);
 }
 
 function answer(d: Draft, ctx: EngineCtx, chosen: number | null) {
@@ -200,11 +227,12 @@ function answer(d: Draft, ctx: EngineCtx, chosen: number | null) {
   ctx.award(me, pts);
   ctx.stat(me, 'perfect');
   const from = tok.pos;
-  const landed = Math.min(BOARD_SIZE, from + D);
+  const size = boardSizeOf(pub.boardSize);
+  const landed = Math.min(size, from + D);
   tok.pos = landed;
-  if (landed >= BOARD_SIZE) {
+  if (landed >= size) {
     pub.effect = { kind: 'WIN', from, to: landed, landed, tile: 'FINISH', text: `Acertou! +${pts} pts e chegou à Coroa!`, points: pts };
-    return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa 30! +${FINISH_BONUS} de bônus de chegada.`);
+    return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa ${boardSizeOf(pub.boardSize)}! +${FINISH_BONUS} de bônus de chegada.`);
   }
   applyTile(d, ctx, from, landed, pts);
 }
@@ -214,14 +242,15 @@ function applyTile(d: Draft, ctx: EngineCtx, from: number, landed: number, pts: 
   const { pub, sec } = d;
   const me = pub.currentId;
   const tok = pub.tokens[me];
-  const tile = tileAt(landed);
+  const size = boardSizeOf(pub.boardSize);
+  const tile = tileAt(landed, size);
   let text = `Acertou! +${pts} pts. Avançou da Casa ${from} para a Casa ${landed}.`;
   switch (tile) {
     case 'ADVANCE_2':
-      tok.pos = Math.min(BOARD_SIZE, landed + 2);
-      if (tok.pos >= BOARD_SIZE) {
+      tok.pos = Math.min(size, landed + 2);
+      if (tok.pos >= size) {
         pub.effect = { kind: 'WIN', from, to: tok.pos, landed, tile, text: `${text} Avançar 2 → chegou à Coroa!`, points: pts };
-        return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa 30! +${FINISH_BONUS} de bônus de chegada.`);
+        return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa ${boardSizeOf(pub.boardSize)}! +${FINISH_BONUS} de bônus de chegada.`);
       }
       text += ` ⏩ Avançar 2 casas → Casa ${tok.pos}!`;
       break;
@@ -289,11 +318,11 @@ function resolveSteal(d: Draft, ctx: EngineCtx, targetId: string) {
     const amount = Math.min(STEAL_AMOUNT, Math.max(0, victim?.matchScore ?? 0));
     ctx.award(targetId, -amount);
     ctx.award(me, amount);
-    tok.pos = Math.min(BOARD_SIZE, tok.pos + 1);
+    tok.pos = Math.min(boardSizeOf(pub.boardSize), tok.pos + 1);
     text += ` ⚡ Roubou ${amount} pts de ${nick(ctx, targetId)} e avançou +1 casa (Casa ${tok.pos})!`;
-    if (tok.pos >= BOARD_SIZE) {
+    if (tok.pos >= boardSizeOf(pub.boardSize)) {
       pub.effect = { kind: 'WIN', from: pending.from, to: tok.pos, landed: pending.landed, tile: 'STEAL_POINTS', text, points: pub.effect?.points ?? 0 };
-      return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa 30! +${FINISH_BONUS} de bônus de chegada.`);
+      return declareWinner(d, ctx, me, `🏆 ${nick(ctx, me)} alcançou a Casa ${boardSizeOf(pub.boardSize)}! +${FINISH_BONUS} de bônus de chegada.`);
     }
   }
   pub.effect = { kind: 'MOVE', from: pending.from, to: tok.pos, landed: pending.landed, tile: 'STEAL_POINTS', text, points: pub.effect?.points ?? 0 };
@@ -323,6 +352,7 @@ export function createSop(players: Player[], _config: unknown, ctx: EngineCtx): 
     currentId: turnOrder[0],
     isExtraTurn: false,
     turnCount: 0,
+    boardSize: boardSizeOf(cfgNum(ctx, 'boardSize', DEFAULT_BOARD_SIZE)),
     tokens: Object.fromEntries(ids.map((id) => [id, { pos: 1, hasShield: false, skipNextTurn: false }])),
     dice: null,
     question: null,
