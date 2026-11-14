@@ -16,6 +16,8 @@ import {
   type TransportMode,
   type WireMsg,
 } from '../realtime/roomChannel';
+import { MessageVerifier, PlayerIdentity, samePublicKey, type OpenedMessage } from '../realtime/secureEnvelope';
+import { firstContactAllowed, stateSenderAllowed } from './statePolicy';
 
 const ACTIVE_ROOM_KEY = 'mascarenhas_hub_active_room';
 const SESSION_KEY = 'mascarenhas_hub_session';
@@ -66,6 +68,13 @@ class SessionManager {
   private lastHelloAt = 0;
   private lastRebroadcastAt = 0;
   private listenersBound = false;
+  /** Credencial criptográfica deste jogador (assina tudo o que sai). */
+  private identity: PlayerIdentity | null = null;
+  /** Chaves fixadas dos demais + anti-replay (verifica tudo o que chega). */
+  private verifier: MessageVerifier | null = null;
+  /** Mensagens são verificadas em série para preservar a ordem de chegada. */
+  private inbox: Promise<void> = Promise.resolve();
+  private keyWarned = false;
 
   get defaultMode(): TransportMode | null {
     return isSupabaseConfigured ? 'supabase' : null;
@@ -133,6 +142,17 @@ class SessionManager {
     this.profile = profile;
     this.hostAbsentSince = null;
     this.lastActivity = Date.now();
+    // Credencial da sessão (sobrevive ao F5 junto com a sessão) + verificador com as chaves registradas na sala.
+    const identity = await PlayerIdentity.load(storageFor(t.mode));
+    this.identity = identity;
+    const verifier = new MessageVerifier(code);
+    verifier.pinAll(snap?.keys);
+    verifier.pin(playerId, identity.publicJwk);
+    this.verifier = verifier;
+    this.inbox = Promise.resolve();
+    this.keyWarned = false;
+    t.setSealer((m) => identity.seal(code, m));
+    this.checkMyKey(snap);
     const store = useHubStore.setState;
     store({ mode: t.mode, meId: playerId, snapshot: snap, myView: null, connection: 'connecting', kicked: false, presence: {} });
 
@@ -198,11 +218,15 @@ class SessionManager {
     const authority = new RoomAuthority(working, sec ?? null, {}, (s, views, secretOut, viewsChanged) => this.onAuthorityChange(s, views, secretOut, viewsChanged), serverNow);
     this.authority = authority;
     authority.setPresence(useHubStore.getState().presence);
+    const myKey = this.identity?.publicJwk;
+    // a autoridade reconhecida pela sala passa a ser a credencial deste dispositivo
+    if (myKey) authority.registerKey(this.playerId, myKey);
     if (!working.players.some((p) => p.id === this.playerId)) {
-      authority.addPlayer(this.playerId, this.profile, this.joinedAt);
+      authority.addPlayer(this.playerId, this.profile, this.joinedAt, myKey);
     } else {
       authority.rebroadcast(true);
     }
+    this.verifier?.pinAll(authority.snap.keys);
     this.hostTimers.push(window.setInterval(() => this.authority?.tick(), 250));
     t.touch();
     this.hostTimers.push(window.setInterval(() => this.transport?.touch(), 5000));
@@ -216,6 +240,7 @@ class SessionManager {
 
   private onAuthorityChange(snap: RoomSnapshot, views: Record<string, unknown>, secret: unknown, viewsChanged: boolean) {
     const copy = structuredClone(snap);
+    this.verifier?.pinAll(copy.keys);
     useHubStore.setState({ snapshot: copy, myView: views[this.playerId] ?? null });
     this.transport?.publish(copy, views, secret, viewsChanged);
     this.lastActivity = Date.now();
@@ -230,18 +255,49 @@ class SessionManager {
 
   /* ----------------------------- mensagens ----------------------------- */
 
-  private onMessage(msg: WireMsg) {
+  /** Aviso (uma vez) se a sala registrou outra credencial para este jogador: as ações dele seriam recusadas. */
+  private checkMyKey(snap: RoomSnapshot | null | undefined) {
+    const registered = snap?.keys?.[this.playerId];
+    if (!registered || !this.identity || this.keyWarned) return;
+    if (!samePublicKey(registered, this.identity.publicJwk)) {
+      this.keyWarned = true;
+      useHubStore.getState().toast('A credencial deste dispositivo não confere com a registrada na sala. Saia e entre novamente.', 'error');
+    }
+  }
+
+  /** Remetente desconhecido (sem chave fixada) só é aceito em casos seguros (ver statePolicy.ts). */
+  private allowFirstContact = (msg: WireMsg): boolean => firstContactAllowed(msg, useHubStore.getState().snapshot);
+
+  private acceptsStateFrom(from: string, snap: RoomSnapshot): boolean {
+    const { snapshot, presence } = useHubStore.getState();
+    return stateSenderAllowed(from, snap, { current: snapshot, presence, authoritySnap: this.authority?.snap ?? null });
+  }
+
+  private onMessage(raw: unknown) {
+    const verifier = this.verifier;
+    if (!verifier) return;
+    this.inbox = this.inbox
+      .then(async () => {
+        const opened = await verifier.open(raw, this.allowFirstContact);
+        // mensagem sem assinatura válida, de remetente desconhecido ou repetida: descartada
+        if (opened && verifier === this.verifier) this.onVerified(opened);
+      })
+      .catch((err) => console.warn('[Mascarenhas Hub] mensagem descartada', err));
+  }
+
+  private onVerified({ msg, pk }: OpenedMessage) {
     const st = useHubStore.getState();
     switch (msg.t) {
       case 'state': {
+        if (msg.from === this.playerId) return;
+        if (!this.acceptsStateFrom(msg.from, msg.snap)) return;
         if (this.authority) {
-          if (msg.from === this.playerId) return;
           // Outro dispositivo também se considera anfitrião: o estado mais recente vence.
-          if (msg.snap.hostId !== this.playerId && msg.snap.updatedAt > this.authority.snap.updatedAt) {
-            this.stepDown();
-          } else return;
+          this.stepDown();
         }
         const snap = msg.snap;
+        this.verifier?.pinAll(snap.keys);
+        this.checkMyKey(snap);
         this.lastActivity = Date.now();
         if (snap.kicked.includes(this.playerId)) {
           this.kickedOut();
@@ -257,10 +313,10 @@ class SessionManager {
         return;
       }
       case 'views':
-        if (!this.authority) useHubStore.setState({ myView: msg.views[this.playerId] ?? null });
+        if (!this.authority && msg.from === st.snapshot?.hostId) useHubStore.setState({ myView: msg.views?.[this.playerId] ?? null });
         return;
       case 'views_changed':
-        if (!this.authority) {
+        if (!this.authority && msg.from === st.snapshot?.hostId) {
           void this.transport?.fetchMyView().then((view) => {
             if (!this.authority) useHubStore.setState({ myView: view });
           });
@@ -270,7 +326,8 @@ class SessionManager {
         this.authority?.handle(msg.from, msg.a);
         return;
       case 'hello':
-        this.authority?.addPlayer(msg.from, msg.profile, msg.joinedAt);
+        // `pk` é a chave que comprovadamente assinou o hello; a autoridade recusa se divergir da registrada
+        this.authority?.addPlayer(msg.from, msg.profile, msg.joinedAt, pk);
         return;
       case 'request_state': {
         if (!this.authority) return;
@@ -405,6 +462,7 @@ class SessionManager {
     this.timers = [];
     this.stepDown();
     this.transport?.disconnect();
+    this.verifier = null;
     if (clearSession) {
       this.transport = null;
       clearActive();

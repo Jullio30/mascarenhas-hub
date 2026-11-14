@@ -20,7 +20,8 @@ export default function QuemEscreveu({ state: s, view, meId, players, config, se
   });
   const inGame = s.participants.includes(meId);
   const roster = s.participants.map((id) => players.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
-  const others = roster.filter((p) => p.id !== meId);
+  // só quem enviou resposta pode ser autor de um card (a lista de quem enviou já é pública)
+  const others = roster.filter((p) => p.id !== meId && s.submittedIds.includes(p.id));
   const guessable = (s.answers ?? []).filter((a) => a.anonymousId !== view?.myAnonId);
   const allSet = guessable.every((a) => guesses[a.anonymousId]);
   const revealEnd = s.reveal ? s.reveal.startedAt + revealDuration(s.reveal.items.length) : null;
@@ -105,9 +106,18 @@ export default function QuemEscreveu({ state: s, view, meId, players, config, se
             );
           })}
           {inGame && !view?.myGuesses && (
-            <Button disabled={!Object.keys(guesses).length} onClick={() => (send({ type: 'GUESSES', guesses }), sfx.click())}>
-              {allSet ? 'Confirmar palpites' : `Confirmar (${Object.keys(guesses).length}/${guessable.length} escolhidos)`}
-            </Button>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Button disabled={!Object.keys(guesses).length} onClick={() => (send({ type: 'GUESSES', guesses }), sfx.click())}>
+                {allSet ? 'Confirmar palpites' : `Confirmar (${Object.keys(guesses).length}/${guessable.length} escolhidos)`}
+              </Button>
+              {/* passar a vez: envia vazio; cards sem palpite não valem pontos para ninguém */}
+              <Button variant="secondary" onClick={() => (send({ type: 'GUESSES', guesses: {} }), sfx.click())}>
+                Passar a vez
+              </Button>
+            </div>
+          )}
+          {inGame && !view?.myGuesses && !allSet && Object.keys(guesses).length > 0 && (
+            <p className="text-center text-xs text-white/70">Cards sem escolha contam como “passou a vez” (sem pontos).</p>
           )}
           <div className="text-center text-sm text-white/75">
             {s.guessedIds.length}/{s.participants.length} confirmaram

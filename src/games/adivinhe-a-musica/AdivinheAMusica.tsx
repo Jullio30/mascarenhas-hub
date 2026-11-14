@@ -15,6 +15,7 @@ import { sfx } from '../../core/audio/sfx';
 const ALL_TITLES = Array.from(new Set(DEFAULT_CATALOG.songs.map((s) => s.title))).sort((a, b) => a.localeCompare(b));
 
 export default function AdivinheAMusica(props: GameMatchProps<MusicState, MusicView>) {
+  if (props.state.unavailable) return <UnavailableRound text={props.state.unavailable} isHost={props.isHost} />;
   if (props.state.mode === 'quiz') return <QuizRound {...props} />;
   return <SongRound {...props} />;
 }
@@ -190,6 +191,23 @@ function Clue({ n, title, children }: { n: number; title: string; children: Reac
         Dica {n} • {title}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Nível 3 do fallback: a modalidade escolhida não tem desafio possível — aviso claro, sem trocar de modo. */
+function UnavailableRound({ text, isHost }: { text: string; isHost: boolean }) {
+  return (
+    <div className="mx-auto grid w-full max-w-2xl gap-5">
+      <Card className="grid gap-3 text-center" glow="purple">
+        <div className="flex justify-center">
+          <Badge color="amber">
+            <Music2 size={12} /> Modalidade indisponível
+          </Badge>
+        </div>
+        <p className="text-lg font-semibold">{text}</p>
+        <p className="text-sm text-white/75">{isHost ? 'Use “Encerrar” no topo da partida para voltar ao lobby.' : 'Aguarde o anfitrião encerrar a partida.'}</p>
+      </Card>
     </div>
   );
 }

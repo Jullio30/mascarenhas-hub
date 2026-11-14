@@ -61,6 +61,11 @@ export interface MusicState extends BasePublicState {
   quizAnswered: string[];
   /** Publicado só no resumo da rodada. */
   quizResult: { correctIndex: number; note: string; picks: Record<string, number> } | null;
+  /**
+   * Nível 3 do fallback: não foi possível montar um desafio da modalidade escolhida (nem com a reserva local).
+   * A rodada fica parada com esta mensagem — o modo NUNCA é trocado em silêncio. Opcional: estados antigos não têm.
+   */
+  unavailable?: string | null;
 }
 
 export interface MusicSecret {
@@ -117,6 +122,7 @@ function resetRound(pub: MusicState, ctx: EngineCtx) {
   pub.quiz = null;
   pub.quizAnswered = [];
   pub.quizResult = null;
+  pub.unavailable = null;
   pub.clues = {};
   pub.stage = 1;
 }
@@ -124,6 +130,7 @@ function resetRound(pub: MusicState, ctx: EngineCtx) {
 function startSongRound(d: Draft, ctx: EngineCtx) {
   const { pub, sec } = d;
   const pool = songPool(ctx);
+  if (!pool.length) return markUnavailable(d, 'dicas', ctx);
   const song = pickUnused(pool, (s) => 'mus:' + s.id, ctx);
   const sameGenre = ctx.catalog.songs.filter((s) => s.id !== song.id && s.genre === song.genre);
   const others = ctx.catalog.songs.filter((s) => s.id !== song.id && s.genre !== song.genre);
@@ -167,16 +174,30 @@ function fromBank(item: MusicQuizItem, ctx: EngineCtx): BuiltQuiz {
   return { kind: item.kind, question: item.question, options, correctIndex: options.indexOf(correct), note: item.note };
 }
 
-function buildQuiz(kind: QuizKind, ctx: EngineCtx): BuiltQuiz {
+/**
+ * Monta uma pergunta ESTRITAMENTE da modalidade pedida (nunca troca de modo em silêncio). Hierarquia de fallback:
+ *  1. itens inéditos da mesma modalidade (respeitando o filtro de gênero);
+ *  2. reserva local da mesma modalidade: recicla os já usados do filtro; se o filtro não tiver nenhum, usa o banco
+ *     completo da modalidade (ou gera a partir do catálogo de músicas, nas modalidades geradas);
+ *  3. impossível montar → `null` (a rodada mostra um aviso claro em vez de virar outra modalidade).
+ */
+export function buildQuiz(kind: QuizKind, ctx: EngineCtx): BuiltQuiz | null {
   const filter = cfgStr(ctx, 'genre', 'all');
   const songs = songPool(ctx);
   const all = ctx.catalog.songs;
-  const bank = MUSIC_QUIZ.filter((q) => q.kind === kind && (filter === 'all' || q.filters.some((f) => f === filter)));
+  const kindBank = MUSIC_QUIZ.filter((q) => q.kind === kind);
+  const bank = kindBank.filter((q) => filter === 'all' || q.filters.some((f) => f === filter));
   const freshBank = bank.filter((q) => !ctx.isUsed(q.id));
+  const fromReserve = () => {
+    const source = freshBank.length ? freshBank : bank.length ? bank : kindBank;
+    return source.length ? fromBank(pickUnused(source, (q) => q.id, ctx), ctx) : null;
+  };
 
-  // info/décadas/gêneros: banco curado primeiro; décadas e gêneros também são gerados a partir das músicas
-  if (kind === 'info' && freshBank.length) return fromBank(pickUnused(freshBank, (q) => q.id, ctx), ctx);
+  // "Complete a informação" só existe no banco curado: nunca vira pergunta de artista/contexto
+  if (kind === 'info') return fromReserve();
+  // décadas e gêneros: banco curado primeiro; também são gerados a partir das músicas
   if ((kind === 'decadas' || kind === 'generos') && freshBank.length && ctx.rng() < 0.6) return fromBank(pickUnused(freshBank, (q) => q.id, ctx), ctx);
+  if (!songs.length || all.length < 2) return kind === 'decadas' || kind === 'generos' ? fromReserve() : null;
 
   const song = pickUnused(songs, (s) => `mq-${kind}:${s.id}`, ctx);
   const same = songs.filter((s) => s.id !== song.id);
@@ -195,18 +216,35 @@ function buildQuiz(kind: QuizKind, ctx: EngineCtx): BuiltQuiz {
       const { options, correctIndex } = optionsFrom(song.title, same.map((s) => s.title), all.map((s) => s.title), ctx);
       return { kind, question: `Qual música é esta? ${song.era} • “${song.hint}”`, options, correctIndex, note: `Era “${song.title}”, de ${song.artist}. ${song.curiosity}.` };
     }
-    case 'artista':
-    case 'info':
-    default: {
+    case 'artista': {
       const { options, correctIndex } = optionsFrom(song.artist, same.map((s) => s.artist), all.map((s) => s.artist), ctx);
       return { kind: 'artista', question: `Quem é o artista por trás de “${song.title}” (${song.era})?`, options, correctIndex, note: `“${song.title}” é de ${song.artist}. ${song.curiosity}.` };
     }
+    default:
+      return null;
   }
+}
+
+function unavailableText(kind: MusicModality, ctx: EngineCtx) {
+  const label = MODALITY_OPTIONS.find((m) => m.value === kind)?.label ?? kind;
+  const genre = cfgStr(ctx, 'genre', 'all');
+  return `Não há desafios disponíveis para a modalidade “${label}”${genre !== 'all' ? ' com o gênero escolhido' : ''}. O anfitrião pode encerrar a partida e trocar a modalidade ou o gênero no lobby.`;
+}
+
+function markUnavailable(d: Draft, kind: MusicModality, ctx: EngineCtx) {
+  resetRound(d.pub, ctx);
+  d.sec.song = null;
+  d.sec.options = [];
+  d.pub.mode = kind === 'dicas' ? 'song' : 'quiz';
+  d.pub.unavailable = unavailableText(kind, ctx);
+  d.pub.endsAt = null; // sem relógio: a sala não trava nem gira rodadas vazias
+  ctx.log('Modalidade sem desafios disponíveis');
 }
 
 function startQuizRound(d: Draft, kind: QuizKind, ctx: EngineCtx) {
   const { pub, sec } = d;
   const q = buildQuiz(kind, ctx);
+  if (!q) return markUnavailable(d, kind, ctx);
   sec.song = null;
   sec.options = [];
   sec.quizCorrect = q.correctIndex;
@@ -305,7 +343,7 @@ function quizAnswer(d: Draft, from: string, index: number, ctx: EngineCtx): bool
 export const musicEngine: GameEngine<MusicState, MusicSecret> = {
   action(d, from, a, ctx) {
     const { pub, sec } = d;
-    if (pub.phase !== 'ROUND_ACTIVE' || !pub.participants.includes(from)) return false;
+    if (pub.unavailable || pub.phase !== 'ROUND_ACTIVE' || !pub.participants.includes(from)) return false;
     if (ctx.now > (pub.endsAt ?? 0)) return false;
     if (pub.mode === 'quiz') {
       if (a.type !== 'QUIZ_ANSWER') return false;
@@ -334,6 +372,7 @@ export const musicEngine: GameEngine<MusicState, MusicSecret> = {
   },
   tick(d, ctx) {
     const { pub } = d;
+    if (pub.unavailable) return false;
     if (pub.phase === 'ROUND_ACTIVE') {
       if (ctx.now >= (pub.endsAt ?? 0)) {
         endRound(d, ctx);

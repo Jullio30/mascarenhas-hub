@@ -10,7 +10,7 @@ export const quemEscreveuPlugin: MascarenhasGamePlugin<WwState, WwSecret, WwView
   rulesSummary: [
     'Todos recebem a mesma pergunta aberta e escrevem uma resposta em segredo.',
     'As respostas aparecem embaralhadas e anônimas (nem o anfitrião vê o autor na tela). A sua aparece marcada como “Sua resposta”.',
-    'Para cada resposta dos outros, escolha quem você acha que escreveu.',
+    'Para cada resposta dos outros, escolha quem você acha que escreveu. Pode confirmar só alguns cards ou tocar em “Passar a vez”: card sem palpite (ou tempo esgotado) não vale pontos para ninguém.',
     'Pontos: +100 por autoria certa. O autor ganha +50 por cada pessoa que ERROU quem escreveu a resposta dele — disfarce seu estilo!',
   ],
   minPlayers: 3,

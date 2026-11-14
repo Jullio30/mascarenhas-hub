@@ -141,6 +141,32 @@ function myAnon(sec: WwSecret, pid: string) {
   return Object.keys(sec.anonMap).find((a) => sec.anonMap[a] === pid) ?? null;
 }
 
+/**
+ * Normaliza a submissão de palpites (GUESSES). Tudo que for vazio, malformado ou inválido vira ABSTENÇÃO
+ * ("passou a vez") naquele card — nunca bloqueia o envio nem gera pontos:
+ *  - id anônimo inexistente (inclui chaves herdadas como "__proto__"/"constructor"), a própria resposta;
+ *  - alvo que não é autor de nenhuma resposta da rodada, o próprio palpiteiro, ou valor não-string.
+ * Palpites válidos de uma submissão parcial são preservados.
+ */
+export function sanitizeGuesses(raw: unknown, sec: Pick<WwSecret, 'anonMap'>, from: string): Record<string, string> {
+  const clean: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return clean;
+  const authors = new Set(Object.values(sec.anonMap));
+  const own = myAnon(sec as WwSecret, from);
+  for (const [anon, pid] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof pid !== 'string' || !pid) continue;
+    if (!Object.prototype.hasOwnProperty.call(sec.anonMap, anon) || anon === own) continue;
+    if (pid === from || !authors.has(pid)) continue;
+    clean[anon] = pid;
+  }
+  return clean;
+}
+
+/** Todos os participantes CONECTADOS já enviaram (ou passaram)? Recalculado também no tick (quedas no meio da fase). */
+function everyoneOnlineDone(pub: WwState, done: (id: string) => boolean, ctx: EngineCtx) {
+  return pub.participants.filter((id) => ctx.isOnline(id)).every(done);
+}
+
 export const wwEngine: GameEngine<WwState, WwSecret> = {
   action(d, from, a, ctx) {
     const { pub, sec } = d;
@@ -151,29 +177,30 @@ export const wwEngine: GameEngine<WwState, WwSecret> = {
       if (!text) return false;
       sec.answers[from] = text;
       pub.submittedIds = [...pub.submittedIds, from];
-      const pending = pub.participants.filter((id) => !sec.answers[id] && ctx.isOnline(id));
-      if (pending.length === 0) toGuessing(d, ctx);
+      if (everyoneOnlineDone(pub, (id) => Boolean(sec.answers[id]), ctx)) toGuessing(d, ctx);
       return true;
     }
     if (a.type === 'GUESSES') {
-      if (pub.phase !== 'GUESSING_AUTHORS' || sec.guesses[from] || !a.guesses || typeof a.guesses !== 'object') return false;
-      const own = myAnon(sec, from);
-      const clean: Record<string, string> = {};
-      Object.entries(a.guesses as Record<string, unknown>).forEach(([anon, pid]) => {
-        const target = String(pid);
-        if (!(anon in sec.anonMap) || anon === own || target === from || !pub.participants.includes(target)) return;
-        clean[anon] = target;
-      });
-      sec.guesses[from] = clean;
+      // 1 envio por jogador (idempotente). Vazio/parcial/inválido é aceito: os cards sem palpite válido contam como "passou a vez".
+      if (pub.phase !== 'GUESSING_AUTHORS' || sec.guesses[from]) return false;
+      sec.guesses[from] = sanitizeGuesses(a.guesses, sec, from);
       pub.guessedIds = [...pub.guessedIds, from];
-      const pending = pub.participants.filter((id) => !sec.guesses[id] && ctx.isOnline(id));
-      if (pending.length === 0) reveal(d, ctx);
+      if (everyoneOnlineDone(pub, (id) => Boolean(sec.guesses[id]), ctx)) reveal(d, ctx);
       return true;
     }
     return false;
   },
   tick(d, ctx) {
-    const { pub } = d;
+    const { pub, sec } = d;
+    // quórum dinâmico: se quem faltava caiu, a fase não fica esperando até o fim do tempo
+    if (pub.phase === 'WRITING_SECRET_ANSWERS' && pub.submittedIds.length > 0 && everyoneOnlineDone(pub, (id) => Boolean(sec.answers[id]), ctx)) {
+      toGuessing(d, ctx);
+      return true;
+    }
+    if (pub.phase === 'GUESSING_AUTHORS' && pub.guessedIds.length > 0 && everyoneOnlineDone(pub, (id) => Boolean(sec.guesses[id]), ctx)) {
+      reveal(d, ctx);
+      return true;
+    }
     if (!pub.endsAt || ctx.now < pub.endsAt) return false;
     switch (pub.phase) {
       case 'WRITING_SECRET_ANSWERS':

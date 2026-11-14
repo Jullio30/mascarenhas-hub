@@ -40,7 +40,8 @@ export interface JoinResult {
 }
 
 export interface TransportHandlers {
-  onMessage: (msg: WireMsg) => void;
+  /** Payload bruto da rede (envelope assinado). Quem verifica é o SessionManager (secureEnvelope.ts). */
+  onMessage: (raw: unknown) => void;
   onPresence: (presence: Record<string, PresenceInfo>) => void;
   onStatus: (status: 'connected' | 'reconnecting' | 'error') => void;
 }
@@ -52,6 +53,8 @@ export interface RoomTransport {
   connect(code: string, playerId: string, joinedAt: number, handlers: TransportHandlers): Promise<void>;
   disconnect(): void;
   send(msg: WireMsg): void;
+  /** Função que assina cada mensagem antes de ir para a rede. Sem ela, nada é enviado (falha fechada). */
+  setSealer(sealer: Sealer | null): void;
   setStatus(status: 'online' | 'away'): void;
   /** Anfitrião: difunde estado público, entrega visões privadas e persiste. */
   publish(snap: RoomSnapshot, views: Record<string, unknown>, secret: unknown, viewsChanged: boolean): void;
@@ -63,6 +66,23 @@ export interface RoomTransport {
   kick(playerId: string): Promise<void>;
   touch(): void;
   serverOffset(): Promise<number>;
+}
+
+export type Sealer = (msg: WireMsg) => Promise<unknown>;
+
+/** Fila de saída: assina na ordem de envio (a assinatura é assíncrona) e só então publica. */
+class Outbox {
+  private chain: Promise<void> = Promise.resolve();
+  sealer: Sealer | null = null;
+  constructor(private post: (payload: unknown) => void) {}
+  push(msg: WireMsg) {
+    const sealer = this.sealer;
+    if (!sealer) return;
+    this.chain = this.chain
+      .then(() => sealer(msg))
+      .then((env) => this.post(env))
+      .catch((err) => console.warn('[Mascarenhas Hub] mensagem não assinada/enviada', err));
+  }
 }
 
 /** Alfabeto sem caracteres ambíguos (sem 0, O, 1, I, L). */
@@ -101,7 +121,7 @@ interface LocalStore {
 }
 
 type LocalEnvelope =
-  | { room: string; kind: 'msg'; msg: WireMsg }
+  | { room: string; kind: 'msg'; msg: unknown }
   | { room: string; kind: 'hb'; from: string; status: 'online' | 'away'; joinedAt: number }
   | { room: string; kind: 'bye'; from: string };
 
@@ -116,6 +136,11 @@ export class LocalRoomTransport implements RoomTransport {
   private timers: number[] = [];
   private handlers: TransportHandlers | null = null;
   private onPageHide = () => this.post({ room: this.code, kind: 'bye', from: this.playerId });
+  private outbox = new Outbox((payload) => this.post({ room: this.code, kind: 'msg', msg: payload }));
+
+  setSealer(sealer: Sealer | null) {
+    this.outbox.sealer = sealer;
+  }
 
   /** Identidade por aba (sessionStorage) para permitir vários jogadores no mesmo navegador. */
   static playerToken(): string {
@@ -225,7 +250,7 @@ export class LocalRoomTransport implements RoomTransport {
   }
 
   send(msg: WireMsg) {
-    this.post({ room: this.code, kind: 'msg', msg });
+    this.outbox.push(msg);
   }
 
   setStatus(status: 'online' | 'away') {
@@ -298,6 +323,11 @@ export class SupabaseRoomTransport implements RoomTransport {
   private saving = false;
   private pending: { snap: RoomSnapshot; views: Record<string, unknown>; secret: unknown; viewsChanged: boolean } | null = null;
   private lastSaveAt = 0;
+  private outbox = new Outbox((payload) => void this.channel?.send({ type: 'broadcast', event: 'msg', payload }));
+
+  setSealer(sealer: Sealer | null) {
+    this.outbox.sealer = sealer;
+  }
 
   private get sb() {
     const sb = getSupabase();
@@ -356,7 +386,7 @@ export class SupabaseRoomTransport implements RoomTransport {
       config: { broadcast: { self: false, ack: false }, presence: { key: playerId } },
     });
     this.channel = channel;
-    channel.on('broadcast', { event: 'msg' }, ({ payload }) => handlers.onMessage(payload as WireMsg));
+    channel.on('broadcast', { event: 'msg' }, ({ payload }) => handlers.onMessage(payload));
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState<{ status: 'online' | 'away'; joinedAt: number }>();
       const out: Record<string, PresenceInfo> = {};
@@ -402,7 +432,7 @@ export class SupabaseRoomTransport implements RoomTransport {
   }
 
   send(msg: WireMsg) {
-    void this.channel?.send({ type: 'broadcast', event: 'msg', payload: msg });
+    this.outbox.push(msg);
   }
 
   setStatus(status: 'online' | 'away') {

@@ -8,9 +8,9 @@ export const categoriasPlugin: MascarenhasGamePlugin<CatState, CatSecret> = {
   title: 'Categorias',
   shortDescription: 'Batata quente lexical: diga uma palavra da categoria antes que a bomba exploda!',
   rulesSummary: [
-    'Na sua vez, envie uma palavra da categoria que ainda não foi dita (10s, depois 7s).',
+    'Na sua vez, envie uma palavra da categoria que ainda não foi dita (10s por padrão; a partir da 2ª volta, no máximo 7s).',
     'Palavra repetida é recusada na hora, mas o relógio continua correndo!',
-    'Os outros podem Contestar palavras inválidas por 6s (50% anula e tira 1 coração).',
+    'Os outros podem Contestar palavras inválidas por 6s: com metade dos demais contestando, a palavra é anulada, o autor perde os 2 pontos dela e 1 coração.',
     'Cada palavra válida: +2. Sobreviver: +5 (1 coração) ou +10 (ileso / último de pé).',
   ],
   minPlayers: 2,

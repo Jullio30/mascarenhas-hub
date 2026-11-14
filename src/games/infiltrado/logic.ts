@@ -1,5 +1,5 @@
 import type { BasePublicState, EngineCtx, GameConfig, GameDraft, GameEngine, Player } from '../../types/game.types';
-import { cfgNum, cfgStr, pick, pickUnused, shuffle } from '../../core/engine/helpers';
+import { cfgNum, cfgStr, pickUnused, shuffle } from '../../core/engine/helpers';
 import { isSameAnswer, normalize, sanitizeShortText } from '../../lib/textUtils';
 import { fetchEvolutionPairs } from '../../services/externalApis';
 import { pushNotice, type PrivateNotice } from '../_shared/notice';
@@ -58,6 +58,10 @@ export interface InfState extends BasePublicState {
   undercoverWord: string | null;
   undercoverIds: string[] | null;
   pointsDelta: Record<string, number>;
+  /** Motivo do último ciclo sem eliminação (texto da tela NO_ELIMINATION). Opcional: estados antigos não têm. */
+  noElimReason?: 'tie' | 'impasse' | null;
+  /** Último ciclo permitido: nele, empate sem decisão encerra a partida a favor dos Infiltrados. */
+  maxCycles?: number;
 }
 
 export interface InfSecret {
@@ -93,6 +97,14 @@ export const CHECK_MS = 4_000;
 export const RESULT_MS = 14_000;
 const OFFLINE_SKIP_MS = 5_000;
 
+/**
+ * Teto de ciclos (trava contra partidas infinitas). Cada ciclo com eliminação tira 1 jogador, então
+ * "participantes + 1" nunca corta uma partida que esteja progredindo normalmente.
+ */
+export const maxCyclesFor = (participants: number) => participants + 1;
+export const IMPASSE_TEXT = 'Impasse no desempate! Ninguém foi eliminado nesta rodada';
+export const ESCAPE_REASON = 'Fuga do Infiltrado: o grupo não chegou a um consenso na votação final, e a falta de acordo favorece os Infiltrados!';
+
 /** 3 jogadores (modo rápido) e 4–6 → 1 infiltrado; 7–12 → 2 infiltrados. */
 export function undercoverCountFor(n: number): number {
   return n >= 7 ? 2 : 1;
@@ -101,8 +113,11 @@ export function undercoverCountFor(n: number): number {
 const living = (pub: InfState) => pub.participants.filter((id) => pub.alive[id]);
 
 function label(pub: InfState) {
-  pub.roundLabel = `${pub.totalRounds > 1 ? `Partida ${pub.round}/${pub.totalRounds} • ` : ''}Ciclo ${pub.cycle}`;
+  const last = pub.maxCycles && pub.cycle >= pub.maxCycles ? ' (votação final)' : '';
+  pub.roundLabel = `${pub.totalRounds > 1 ? `Partida ${pub.round}/${pub.totalRounds} • ` : ''}Ciclo ${pub.cycle}${last}`;
 }
+
+const isFinalCycle = (pub: InfState) => pub.cycle >= (pub.maxCycles ?? maxCyclesFor(pub.participants.length));
 
 function startMatch(d: Draft, ctx: EngineCtx) {
   const { pub, sec } = d;
@@ -154,6 +169,8 @@ function startMatch(d: Draft, ctx: EngineCtx) {
     undercoverWord: null,
     undercoverIds: null,
     pointsDelta: {},
+    noElimReason: null,
+    maxCycles: maxCyclesFor(players.length),
     endsAt: ctx.now + DISTRIBUTION_MS,
   } satisfies Partial<InfState>);
   label(pub);
@@ -260,11 +277,22 @@ function closeRevote(d: Draft, ctx: EngineCtx) {
   noElimination(d, ctx);
 }
 
-function noElimination(d: Draft, ctx: EngineCtx) {
+function noElimination(d: Draft, ctx: EngineCtx, reason: 'tie' | 'impasse' = 'tie') {
+  // na votação final não há próximo ciclo: sem consenso, o(s) Infiltrado(s) escapa(m)
+  if (isFinalCycle(d.pub)) return finishMatch(d, ctx, 'INFILTRADOS', ESCAPE_REASON);
   d.pub.noElimStreak += 1;
+  d.pub.noElimReason = reason;
   d.pub.phase = 'NO_ELIMINATION';
   d.pub.endsAt = ctx.now + NO_ELIM_MS;
-  ctx.log(`Ciclo ${d.pub.cycle}: empate persistente, ninguém foi eliminado`);
+  ctx.log(reason === 'impasse' ? `Ciclo ${d.pub.cycle}: ${IMPASSE_TEXT}` : `Ciclo ${d.pub.cycle}: empate persistente, ninguém foi eliminado`);
+}
+
+/**
+ * Tempo do voto de minerva esgotado (ou anfitrião desconectado): NUNCA sorteia um eliminado.
+ * Impasse → ninguém sai e o jogo segue para o próximo ciclo; no ciclo final, os Infiltrados escapam.
+ */
+function tiebreakImpasse(d: Draft, ctx: EngineCtx) {
+  noElimination(d, ctx, 'impasse');
 }
 
 function eliminate(d: Draft, ctx: EngineCtx, pid: string) {
@@ -275,6 +303,7 @@ function eliminate(d: Draft, ctx: EngineCtx, pid: string) {
   pub.eliminatedRole = role;
   pub.eliminations = [...pub.eliminations, { pid, cycle: pub.cycle, role }];
   pub.noElimStreak = 0;
+  pub.noElimReason = null;
   pub.phase = 'ELIMINATION_REVEAL';
   pub.endsAt = ctx.now + ELIM_REVEAL_MS;
   const nick = ctx.players.find((p) => p.id === pid)?.nickname ?? 'Jogador';
@@ -462,6 +491,11 @@ export const infiltradoEngine: GameEngine<InfState, InfSecret> = {
       addClue(d, ctx, '— removido', true);
       return true;
     }
+    // anfitrião offline durante o voto de minerva: não há quem decida → impasse imediato (sem sorteio)
+    if (pub.phase === 'HOST_TIEBREAK' && !ctx.isOnline(ctx.hostId)) {
+      tiebreakImpasse(d, ctx);
+      return true;
+    }
     if (pub.phase === 'CLUE_ROUND') {
       const active = pub.order[pub.clueIndex];
       const offlineSkip = !ctx.isOnline(active) && ctx.now > pub.endsAt - CLUE_MS + OFFLINE_SKIP_MS;
@@ -484,7 +518,7 @@ export const infiltradoEngine: GameEngine<InfState, InfSecret> = {
         closeRevote(d, ctx);
         return true;
       case 'HOST_TIEBREAK':
-        eliminate(d, ctx, pick(pub.tied ?? living(pub), ctx.rng));
+        tiebreakImpasse(d, ctx);
         return true;
       case 'NO_ELIMINATION':
         pub.cycle += 1;

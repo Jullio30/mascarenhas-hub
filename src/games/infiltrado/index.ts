@@ -10,7 +10,9 @@ export const infiltradoPlugin: MascarenhasGamePlugin<InfState, InfSecret, InfVie
   rulesSummary: [
     'Cada um recebe uma palavra secreta. O(s) Infiltrado(s) recebe(m) uma palavra parecida (ex.: Pikachu × Raichu) — e ninguém sabe se é Maioria ou Infiltrado.',
     '1 Infiltrado com até 6 jogadores; 2 Infiltrados com 7 a 12. Ciclos: dicas (1–3 palavras) → discussão → votação secreta.',
-    'Empate: defesa e desempate só entre os empatados; se persistir, ninguém sai no ciclo. O Infiltrado eliminado pode chutar a palavra da Maioria e roubar a vitória.',
+    'Empate: defesa e desempate só entre os empatados; se persistir, ninguém sai no ciclo. A partir do 4º ciclo, um novo empate persistente vai para o voto de minerva do anfitrião.',
+    'Se o anfitrião não decidir a tempo (ou estiver offline), ninguém é eliminado por sorteio: é um impasse e o jogo segue para o próximo ciclo. Na votação final (último ciclo, indicado no topo), empate sem decisão faz os Infiltrados escaparem por falta de consenso.',
+    'O Infiltrado eliminado pode chutar a palavra da Maioria e roubar a vitória.',
     'Comuns vencem eliminando todos os Infiltrados (+1.000, +200 se sobreviveu, +150 por voto certo). Infiltrados vencem empatando em número (+1.500).',
   ],
   minPlayers: 3,

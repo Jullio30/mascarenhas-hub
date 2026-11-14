@@ -2,7 +2,14 @@ import type { BasePublicState, EngineCtx, GameDraft, GameEngine, Player } from '
 import { cfgNum, cfgStr, customContent, mergePools, pickUnused } from '../../core/engine/helpers';
 import { MOST_LIKELY_CATALOG, MOST_LIKELY_VIBE_GROUPS, type MostLikelyPrompt } from './mostLikelyCatalog';
 
-export type QmpPhase = 'SECRET_VOTING' | 'SIMULTANEOUS_REVEAL' | 'FINISHED';
+/**
+ * Fluxo da rodada (4 etapas):
+ *  1–2. DISCUSSION: pergunta para todos, votação FECHADA; cada um marca "Pronto para votar" (pode desmarcar).
+ *  3.   SECRET_VOTING: abre sozinha quando todos os conectados estão prontos OU o tempo de discussão acaba.
+ *       Votar encerra a participação do jogador na etapa (prontidão efetiva = pronto || votou).
+ *  4.   SIMULTANEOUS_REVEAL: todos votaram (conectados) ou o tempo de votação acabou → revelação + pontos.
+ */
+export type QmpPhase = 'DISCUSSION' | 'SECRET_VOTING' | 'SIMULTANEOUS_REVEAL' | 'FINISHED';
 
 export interface QmpState extends BasePublicState {
   phase: QmpPhase;
@@ -10,6 +17,8 @@ export interface QmpState extends BasePublicState {
   promptId: string;
   prompt: string;
   votedIds: string[];
+  /** Quem marcou "Pronto para votar" na discussão (público: é só prontidão, não revela voto). */
+  readyIds: string[];
   /** Revelados só em SIMULTANEOUS_REVEAL. */
   votes: Record<string, string> | null;
   received: Record<string, number> | null;
@@ -32,6 +41,35 @@ export interface QmpView {
 type Draft = GameDraft<QmpState, QmpSecret>;
 
 export const REVEAL_MS = 12_000;
+export const DEFAULT_DISCUSS_SECONDS = 60;
+export const DEFAULT_VOTE_SECONDS = 20;
+
+/** Elegíveis = participantes conectados. Quem cai não segura a fase (quórum dinâmico). */
+const eligible = (pub: QmpState, ctx: EngineCtx) => pub.participants.filter((id) => ctx.isOnline(id));
+
+/** Prontidão efetiva: votar sempre conta como pronto (nunca exige outro clique depois do voto). */
+export const isEffectivelyReady = (pub: QmpState, sec: QmpSecret, id: string) => pub.readyIds.includes(id) || Boolean(sec.votes[id]);
+
+function openVoting(d: Draft, ctx: EngineCtx) {
+  d.pub.phase = 'SECRET_VOTING';
+  d.pub.endsAt = ctx.now + cfgNum(ctx, 'voteTimeSeconds', DEFAULT_VOTE_SECONDS) * 1000;
+}
+
+/** Avança a fase se o quórum dos conectados foi atingido. Retorna true quando houve mudança. */
+function checkQuorum(d: Draft, ctx: EngineCtx): boolean {
+  const { pub, sec } = d;
+  const online = eligible(pub, ctx);
+  if (!online.length) return false;
+  if (pub.phase === 'DISCUSSION' && online.every((id) => isEffectivelyReady(pub, sec, id))) {
+    openVoting(d, ctx);
+    return true;
+  }
+  if (pub.phase === 'SECRET_VOTING' && online.every((id) => Boolean(sec.votes[id]))) {
+    reveal(d, ctx);
+    return true;
+  }
+  return false;
+}
 
 /**
  * Pontuação exata (imutável):
@@ -60,15 +98,16 @@ function startRound(d: Draft, ctx: EngineCtx) {
   const prompt = pickUnused(pool, (p) => p.id, ctx);
   d.sec.votes = {};
   Object.assign(d.pub, {
-    phase: 'SECRET_VOTING',
+    phase: 'DISCUSSION',
     promptId: prompt.id,
     prompt: prompt.text,
     votedIds: [],
+    readyIds: [],
     votes: null,
     received: null,
     winners: null,
     pointsDelta: {},
-    endsAt: ctx.now + cfgNum(ctx, 'voteTimeSeconds', 20) * 1000,
+    endsAt: ctx.now + cfgNum(ctx, 'discussTimeSeconds', DEFAULT_DISCUSS_SECONDS) * 1000,
   } satisfies Partial<QmpState>);
 }
 
@@ -94,7 +133,7 @@ function reveal(d: Draft, ctx: EngineCtx) {
 
 export function createQmp(players: Player[], _config: unknown, ctx: EngineCtx): Draft {
   const pub: QmpState = {
-    phase: 'SECRET_VOTING',
+    phase: 'DISCUSSION',
     round: 1,
     totalRounds: cfgNum(ctx, 'rounds', 8),
     endsAt: null,
@@ -102,6 +141,7 @@ export function createQmp(players: Player[], _config: unknown, ctx: EngineCtx): 
     promptId: '',
     prompt: '',
     votedIds: [],
+    readyIds: [],
     votes: null,
     received: null,
     winners: null,
@@ -121,22 +161,40 @@ export function createQmp(players: Player[], _config: unknown, ctx: EngineCtx): 
 export const qmpEngine: GameEngine<QmpState, QmpSecret> = {
   action(d, from, a, ctx) {
     const { pub, sec } = d;
+    if (!pub.participants.includes(from)) return false;
+    if (a.type === 'READY') {
+      // só na discussão; `ready: false` desmarca (continuar argumentando) enquanto o quórum não fechou
+      if (pub.phase !== 'DISCUSSION') return false;
+      const want = a.ready !== false;
+      const has = pub.readyIds.includes(from);
+      if (want === has) return false; // idempotente
+      pub.readyIds = want ? [...pub.readyIds, from] : pub.readyIds.filter((id) => id !== from);
+      checkQuorum(d, ctx);
+      return true;
+    }
+    // voto prematuro (na discussão) ou fora de fase é rejeitado
     if (a.type !== 'VOTE' || pub.phase !== 'SECRET_VOTING') return false;
     const target = String(a.target ?? '');
-    // validador: participante, alvo válido, PROIBIDO votar em si mesmo, 1 voto por jogador (idempotente)
-    if (!pub.participants.includes(from) || !pub.participants.includes(target) || target === from) return false;
+    // validador: participante, alvo válido, PROIBIDO votar em si mesmo, 1 voto por jogador (sem troca: idempotente)
+    if (!pub.participants.includes(target) || target === from) return false;
     if (sec.votes[from]) return false;
     sec.votes[from] = target;
     pub.votedIds = [...pub.votedIds, from];
-    const pending = pub.participants.filter((id) => !sec.votes[id] && ctx.isOnline(id));
-    if (pending.length === 0) reveal(d, ctx);
+    checkQuorum(d, ctx);
     return true;
   },
   tick(d, ctx) {
     const { pub } = d;
+    // estados antigos (antes da etapa de discussão) não têm readyIds
+    if (!Array.isArray(pub.readyIds)) pub.readyIds = [];
+    if ((pub.phase === 'DISCUSSION' || pub.phase === 'SECRET_VOTING') && checkQuorum(d, ctx)) return true;
     if (!pub.endsAt || ctx.now < pub.endsAt) return false;
+    if (pub.phase === 'DISCUSSION') {
+      openVoting(d, ctx); // tempo de discussão acabou: votação abre para todos
+      return true;
+    }
     if (pub.phase === 'SECRET_VOTING') {
-      reveal(d, ctx);
+      reveal(d, ctx); // tempo de votação acabou: revela com os votos recebidos
       return true;
     }
     if (pub.phase === 'SIMULTANEOUS_REVEAL') {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Fingerprint, Gavel, MessageSquare, Scale, Send, Skull, Trophy, UserCheck } from 'lucide-react';
 import type { GameMatchProps, Player } from '../../types/game.types';
 import type { InfState, InfView } from './logic';
-import { CHECK_MS, CLUE_MS, DISCUSSION_MS, DISTRIBUTION_MS, ELIM_REVEAL_MS, GUESS_MS, NO_ELIM_MS, RESULT_MS, REVOTE_MS, TIEBREAK_MS, VOTE_MS } from './logic';
+import { IMPASSE_TEXT, CHECK_MS, CLUE_MS, DISCUSSION_MS, DISTRIBUTION_MS, ELIM_REVEAL_MS, GUESS_MS, NO_ELIM_MS, RESULT_MS, REVOTE_MS, TIEBREAK_MS, VOTE_MS } from './logic';
 import { Badge, Button, Card, Input, cn } from '../../components/ui';
 import { Avatar, PlayerChip, nameOf } from '../../components/shared/PlayerBits';
 import { HoldToReveal, PhaseTitle, TimerBar } from '../../components/shared/SyncTimer';
@@ -219,7 +219,11 @@ export default function Infiltrado({ state: s, view, meId, players, isHost, send
 
       {s.phase === 'HOST_TIEBREAK' && s.tied && (
         <Card className="flex flex-col gap-4" glow="red">
-          <PhaseTitle kicker="Empate persistente pela 2ª vez" title={isHost ? 'Voto de minerva: você decide quem sai' : 'O anfitrião vai dar o voto de minerva…'} />
+          <PhaseTitle
+            kicker="Empate persistente pela 2ª vez"
+            title={isHost ? 'Voto de minerva: você decide quem sai' : 'O anfitrião vai dar o voto de minerva…'}
+            sub={s.maxCycles && s.cycle >= s.maxCycles ? 'Votação final: sem decisão, os Infiltrados escapam por falta de consenso.' : 'Sem decisão no tempo, ninguém é eliminado (sem sorteio) e o jogo segue.'}
+          />
           <TimerBar endsAt={s.endsAt} totalMs={TIEBREAK_MS} color="red" />
           {isHost && <VoteGrid ids={s.tied} players={players} meId="" disabled={busy} chosen={null} onVote={(id) => act('TIEBREAK', { target: id })} />}
         </Card>
@@ -228,7 +232,8 @@ export default function Infiltrado({ state: s, view, meId, players, isHost, send
       {s.phase === 'NO_ELIMINATION' && (
         <Card className="flex flex-col items-center gap-3 text-center animate-pop">
           <Scale size={36} className="text-amber-300" />
-          <div className="font-display text-2xl font-bold">Empate Persistente! Ninguém foi eliminado neste ciclo.</div>
+          <div className="font-display text-2xl font-bold">{s.noElimReason === 'impasse' ? `${IMPASSE_TEXT}.` : 'Empate Persistente! Ninguém foi eliminado neste ciclo.'}</div>
+          {s.noElimReason === 'impasse' && <p className="text-sm text-white/75">O voto de minerva não foi dado a tempo — ninguém é eliminado por sorteio. O jogo segue para o próximo ciclo.</p>}
           <TimerBar endsAt={s.endsAt} totalMs={NO_ELIM_MS} />
         </Card>
       )}

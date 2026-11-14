@@ -22,6 +22,7 @@ import { sanitizeNickname } from '../../lib/textUtils';
 import { AVATARS } from '../../data/avatars';
 import type { PlayerProfile } from '../realtime/roomChannel';
 import { resolveCustomItems } from '../contentPacks/contentPackManager';
+import { samePublicKey } from '../realtime/secureEnvelope';
 
 export type AuthorityListener = (snap: RoomSnapshot, views: Record<string, unknown>, secret: unknown, viewsChanged: boolean) => void;
 
@@ -129,12 +130,32 @@ export class RoomAuthority {
     this.snap.log = [...this.snap.log, { id: crypto.randomUUID(), ts: this.now(), text }].slice(-MAX_LOG);
   }
 
-  addPlayer(id: string, rawProfile: PlayerProfile, joinedAt: number) {
+  /**
+   * Registra a chave pública (credencial) de um jogador. A primeira chave vinculada a um id é definitiva:
+   * outra chave para o mesmo id é recusada (tentativa de se passar por outro jogador).
+   * Retorna 'added' | 'same' | 'mismatch'.
+   */
+  registerKey(id: string, pk: JsonWebKey): 'added' | 'same' | 'mismatch' {
+    const keys = this.snap.keys ?? {};
+    const known = keys[id];
+    if (known) return samePublicKey(known, pk) ? 'same' : 'mismatch';
+    this.snap.keys = { ...keys, [id]: { kty: 'EC', crv: pk.crv, x: pk.x, y: pk.y } };
+    return 'added';
+  }
+
+  /** `pk`: chave com que o `hello` foi verificado (obrigatória quando a sala usa credenciais). */
+  addPlayer(id: string, rawProfile: PlayerProfile, joinedAt: number, pk?: JsonWebKey) {
     if (typeof id !== 'string' || !id || this.snap.kicked.includes(id)) return;
+    let keyAdded = false;
+    if (pk) {
+      const r = this.registerKey(id, pk);
+      if (r === 'mismatch') return; // credencial diferente da registrada: não é o mesmo jogador
+      keyAdded = r === 'added';
+    }
     const profile = cleanProfile(rawProfile);
     const existing = this.snap.players.find((p) => p.id === id);
     if (existing) {
-      if (existing.nickname === profile.nickname && existing.avatar === profile.avatar) {
+      if (!keyAdded && existing.nickname === profile.nickname && existing.avatar === profile.avatar) {
         this.rebroadcast(true);
         return;
       }
@@ -169,6 +190,9 @@ export class RoomAuthority {
           const key = String(action.key);
           const value = action.value as GameConfig[string];
           if (this.snap.status !== 'LOBBY') return;
+          // só valores primitivos e chaves simples (nada de objetos ou "__proto__" vindos da rede)
+          const okValue = (typeof value === 'number' && Number.isFinite(value)) || typeof value === 'boolean' || (typeof value === 'string' && value.length <= 20000);
+          if (!okValue || !/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(key)) return;
           this.snap.configs[slug] = { ...(this.snap.configs[slug] ?? defaultConfigFor(slug)), [key]: value };
           return this.commit(false);
         }

@@ -113,6 +113,11 @@ export interface RoomSnapshot {
   updatedAt: number;
   /** Anfitrião está preparando o conteúdo da partida (APIs externas). */
   preparing?: boolean;
+  /**
+   * Registro de credenciais da sala: chave pública ECDSA P-256 de cada jogador (só a parte pública).
+   * Mensagens de um jogador só são aceitas se assinadas pela chave registrada aqui. Opcional: salas antigas não têm.
+   */
+  keys?: Record<string, JsonWebKey>;
 }
 
 /** Campos mínimos que todo estado público de jogo expõe para o cabeçalho da partida. */

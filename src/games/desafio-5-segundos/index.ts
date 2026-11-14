@@ -10,7 +10,7 @@ export const desafio5SegundosPlugin: MascarenhasGamePlugin<D5State, D5Secret, D5
   shortDescription: 'Escreva até 5 respostas do tema em 10 segundos. Depois o grupo avalia cada uma!',
   rulesSummary: [
     'Na sua vez, clique em “Estou Pronto!” para revelar o tema (ex.: “Cite 5 Pokémon do tipo Fogo”).',
-    'Você tem 10 segundos para digitar até 5 respostas — Enter confirma e pula para o próximo campo. O que estiver digitado quando o tempo zerar é enviado automaticamente.',
+    'Você tem 10 segundos para digitar até 5 respostas (tempo e quantidade ajustáveis pelo anfitrião) — Enter confirma e pula para o próximo campo. O que estiver digitado quando o tempo zerar é enviado automaticamente. Respostas repetidas contam uma vez só.',
     'Só depois do tempo (ou quando você terminar) os outros jogadores avaliam CADA resposta: 👍 Favorável ou 👎 Contrário. Você não vota nas suas.',
     'Pontos: +1 por voto favorável em cada resposta (👎 vale 0). Ex.: 3 respostas com 3 👍 cada = 9 pontos.',
   ],
