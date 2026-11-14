@@ -26,6 +26,8 @@ export interface SignedEnvelope {
 }
 
 const IDENTITY_KEY = 'mascarenhas_hub_identity_v1';
+/** Última sequência usada por esta credencial (compartilhada entre abas e mantida no F5). */
+const SEQ_KEY = 'mascarenhas_hub_identity_seq_v1';
 const MAX_DATA = 900_000;
 const ALGO = { name: 'ECDSA', namedCurve: 'P-256' } as const;
 const SIGN = { name: 'ECDSA', hash: 'SHA-256' } as const;
@@ -102,6 +104,7 @@ export class PlayerIdentity {
   private constructor(
     private readonly privateKey: CryptoKey,
     readonly publicJwk: JsonWebKey,
+    private readonly storage: Storage | null = null,
   ) {}
 
   private lastSeq = 0;
@@ -114,7 +117,7 @@ export class PlayerIdentity {
         const saved = JSON.parse(raw) as { priv: JsonWebKey; pub: JsonWebKey };
         if (saved?.priv && isPublicJwk(saved.pub)) {
           const priv = await subtle().importKey('jwk', saved.priv, ALGO, false, ['sign']);
-          return new PlayerIdentity(priv, cleanPublicJwk(saved.pub));
+          return new PlayerIdentity(priv, cleanPublicJwk(saved.pub), storage);
         }
       }
     } catch {
@@ -129,12 +132,27 @@ export class PlayerIdentity {
       /* storage cheio/bloqueado: a credencial vale só para esta página */
     }
     const signKey = await subtle().importKey('jwk', priv, ALGO, false, ['sign']);
-    return new PlayerIdentity(signKey, pub);
+    return new PlayerIdentity(signKey, pub, storage);
   }
 
   /** Sequência estritamente crescente, inclusive entre recarregamentos (baseada no relógio). */
   nextSeq(): number {
-    this.lastSeq = Math.max(this.lastSeq + 1, Date.now() * 1000);
+    // Parte em microssegundos do relógio + variação aleatória dentro do milissegundo, e nunca abaixo da última
+    // sequência gravada: duas abas do mesmo jogador (mesma credencial) ou um F5 no mesmo milissegundo não
+    // geram números repetidos — que o verificador descartaria como replay.
+    let stored = 0;
+    try {
+      stored = Number(this.storage?.getItem(SEQ_KEY)) || 0;
+    } catch {
+      /* storage bloqueado: segue só com a memória */
+    }
+    const clock = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+    this.lastSeq = Math.max(this.lastSeq + 1, stored + 1, clock);
+    try {
+      this.storage?.setItem(SEQ_KEY, String(this.lastSeq));
+    } catch {
+      /* idem */
+    }
     return this.lastSeq;
   }
 

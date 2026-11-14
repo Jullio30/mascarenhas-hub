@@ -110,6 +110,21 @@ describe('Credenciais e envelopes assinados (ECDSA P-256)', () => {
     expect(JSON.stringify(b.publicJwk)).not.toContain('"d"'); // a chave pública nunca carrega a parte privada
   });
 
+  it('duas abas com a mesma credencial nunca repetem a sequência (o verificador aceita todas)', async () => {
+    const st = new MemStorage();
+    const tab1 = await PlayerIdentity.load(st);
+    const tab2 = await PlayerIdentity.load(st);
+    const v = new MessageVerifier(ROOM);
+    v.pin('alice', tab1.publicJwk);
+    const seqs: number[] = [];
+    for (let i = 0; i < 200; i++) {
+      const env = await (i % 2 ? tab2 : tab1).seal(ROOM, action('alice'));
+      seqs.push(env.seq);
+      expect(await v.open(env, () => false)).not.toBeNull();
+    }
+    expect(seqs.every((s, i) => i === 0 || s > seqs[i - 1])).toBe(true);
+  });
+
   it('envelopes malformados não derrubam o verificador', async () => {
     const v = new MessageVerifier(ROOM);
     for (const junk of [null, 1, 'x', {}, { v: 1, room: ROOM }, { v: 1, room: ROOM, from: 'a', seq: 1, data: '{', sig: '', pk: {} }]) {
