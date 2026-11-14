@@ -16,7 +16,7 @@ import {
   type TransportMode,
   type WireMsg,
 } from '../realtime/roomChannel';
-import { MessageVerifier, PlayerIdentity, samePublicKey, type OpenedMessage } from '../realtime/secureEnvelope';
+import { MessageVerifier, PlayerIdentity, legacySender, samePublicKey, type OpenedMessage } from '../realtime/secureEnvelope';
 import { firstContactAllowed, stateSenderAllowed } from './statePolicy';
 
 const ACTIVE_ROOM_KEY = 'mascarenhas_hub_active_room';
@@ -75,6 +75,8 @@ class SessionManager {
   /** Mensagens são verificadas em série para preservar a ordem de chegada. */
   private inbox: Promise<void> = Promise.resolve();
   private keyWarned = false;
+  /** Remetentes já avisados por estarem numa versão antiga do app (mensagens sem assinatura). */
+  private legacyWarned = new Set<string>();
 
   get defaultMode(): TransportMode | null {
     return isSupabaseConfigured ? 'supabase' : null;
@@ -151,6 +153,7 @@ class SessionManager {
     this.verifier = verifier;
     this.inbox = Promise.resolve();
     this.keyWarned = false;
+    this.legacyWarned.clear();
     t.setSealer((m) => identity.seal(code, m));
     this.checkMyKey(snap);
     const store = useHubStore.setState;
@@ -265,6 +268,18 @@ class SessionManager {
     }
   }
 
+  /**
+   * Mensagem no formato antigo (sem assinatura) vem de alguém com o app desatualizado em cache.
+   * Ela continua sendo descartada; aqui só avisamos (uma vez por jogador) para essa pessoa recarregar a página.
+   */
+  private warnLegacyPeer(raw: unknown) {
+    const legacy = legacySender(raw);
+    if (!legacy || legacy === this.playerId || this.legacyWarned.has(legacy)) return;
+    this.legacyWarned.add(legacy);
+    const nick = useHubStore.getState().snapshot?.players.find((p) => p.id === legacy)?.nickname;
+    useHubStore.getState().toast(`${nick ?? 'Alguém'} está com uma versão antiga do app — peça para recarregar a página (F5).`, 'error');
+  }
+
   /** Remetente desconhecido (sem chave fixada) só é aceito em casos seguros (ver statePolicy.ts). */
   private allowFirstContact = (msg: WireMsg): boolean => firstContactAllowed(msg, useHubStore.getState().snapshot);
 
@@ -276,6 +291,7 @@ class SessionManager {
   private onMessage(raw: unknown) {
     const verifier = this.verifier;
     if (!verifier) return;
+    this.warnLegacyPeer(raw);
     this.inbox = this.inbox
       .then(async () => {
         const opened = await verifier.open(raw, this.allowFirstContact);

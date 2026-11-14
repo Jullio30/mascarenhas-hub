@@ -160,6 +160,14 @@ export interface OpenedMessage {
  * Verificador do lado receptor: chaves fixadas por jogador + último seq aceito.
  * `allowFirstContact` decide se um remetente sem chave fixada pode ser aceito (e fixado) por esta mensagem.
  */
+/** Se `raw` é uma mensagem no formato antigo (sem envelope assinado), devolve o remetente declarado. */
+export function legacySender(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  if ('sig' in r || 'v' in r) return null;
+  return typeof r.t === 'string' && typeof r.from === 'string' && r.from.length > 0 && r.from.length <= 128 ? r.from : null;
+}
+
 export class MessageVerifier {
   private keys = new Map<string, JsonWebKey>();
   private lastSeq = new Map<string, number>();

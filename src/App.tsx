@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { normalizeRoomCode } from './core/realtime/roomChannel';
 import { sfx } from './core/audio/sfx';
 import { Footer, Header, Logo, CrtOverlay } from './components/layout/Header';
-import { ReactionLayer, Toasts } from './components/layout/Overlays';
+import { ReactionLayer, Toasts, UpdateBanner } from './components/layout/Overlays';
 import HomeScreen from './components/lobby/HomeScreen';
 import Lobby from './components/lobby/Lobby';
 import MatchView from './components/shared/MatchView';
@@ -105,6 +105,7 @@ export default function App() {
       </div>
       <Toasts />
       <ReactionLayer />
+      <UpdateBanner />
       <CrtOverlay />
 
       <Modal open={connection === 'inactive'} dismissable={false} title="Sessão pausada por inatividade">
