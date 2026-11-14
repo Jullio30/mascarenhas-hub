@@ -258,20 +258,11 @@ export default function Lobby() {
                 sfx.click();
               };
               return (
+                // O cartão não é um botão: o botão de escolher cobre o cartão inteiro (camada por cima) e "Ver Regras" fica
+                // acima dele. Assim não há botão dentro de botão (leitores de tela e teclado se confundiam).
                 <div
                   key={g.slug}
-                  role="button"
-                  tabIndex={isHost ? 0 : -1}
-                  aria-disabled={!isHost || Boolean(snapshot.preparing)}
-                  aria-pressed={sel}
-                  onClick={choose}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      choose();
-                    }
-                  }}
-                  className={cn('flex min-h-28 flex-col gap-2 rounded-3xl border-2 p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn(a.edge, 'bg-surface/70', isHost && 'hover:-translate-y-0.5 hover:bg-white/[.05]'))}
+                  className={cn('relative flex min-h-28 flex-col gap-2 rounded-3xl border-2 p-4 text-left transition', isHost ? 'cursor-pointer' : 'cursor-default', sel ? `${a.border} ${a.bg} ${a.glow}` : cn(a.edge, 'bg-surface/70', isHost && 'hover:-translate-y-0.5 hover:bg-white/[.05]'))}
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', a.bg)}>
@@ -280,7 +271,19 @@ export default function Lobby() {
                     <span className="min-w-0 flex-1 font-display text-lg font-bold leading-tight">{g.title}</span>
                     {g.edition === 'new' && <Badge color="green">Novo</Badge>}
                   </div>
-                  <span className="text-sm text-white/75">{g.shortDescription}</span>
+                  <button
+                    type="button"
+                    onClick={choose}
+                    tabIndex={isHost ? 0 : -1}
+                    aria-disabled={!isHost || Boolean(snapshot.preparing)}
+                    aria-pressed={sel}
+                    aria-label={`Escolher ${g.title}`}
+                    aria-describedby={`game-desc-${g.slug}`}
+                    className={cn('absolute inset-0 rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white', isHost ? 'cursor-pointer' : 'cursor-default')}
+                  />
+                  <span id={`game-desc-${g.slug}`} className="text-sm text-white/75">
+                    {g.shortDescription}
+                  </span>
                   <div className="mt-auto flex items-center justify-between gap-2">
                     <span className="text-xs text-white/70">
                       {g.minPlayers}–{g.maxPlayers} jogadores • ideal {g.recommendedPlayers}
@@ -291,9 +294,10 @@ export default function Lobby() {
                         e.stopPropagation();
                         setRulesFor(g.slug as GameSlug);
                       }}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-bold text-white/80 hover:bg-white/10"
+                      aria-label={`Ver regras de ${g.title}`}
+                      className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-bold text-white/80 hover:bg-white/10"
                     >
-                      <BookOpen size={12} /> Ver Regras
+                      <BookOpen size={12} aria-hidden /> Ver Regras
                     </button>
                   </div>
                 </div>

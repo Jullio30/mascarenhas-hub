@@ -30,7 +30,7 @@ export function PresenceDot({ status }: { status: PresenceStatus | undefined }) 
     disconnected: 'bg-white/25',
   } as const;
   const label = { online: 'Online', away: 'Ausente', disconnected: 'Desconectado' }[s];
-  return <span title={label} aria-label={label} className={cn('inline-block h-2.5 w-2.5 rounded-full', map[s])} />;
+  return <span role="img" title={label} aria-label={label} className={cn('inline-block h-2.5 w-2.5 rounded-full', map[s])} />;
 }
 
 export function PlayerChip({

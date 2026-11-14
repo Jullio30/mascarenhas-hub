@@ -4,6 +4,7 @@ import { useHubStore } from './store/useHubStore';
 import { session } from './core/session/sessionManager';
 import { isSupabaseConfigured } from './lib/supabase';
 import { normalizeRoomCode } from './core/realtime/roomChannel';
+import { getGame } from './core/registry/gameRegistry';
 import { sfx } from './core/audio/sfx';
 import { Footer, Header, Logo, CrtOverlay } from './components/layout/Header';
 import { ReactionLayer, Toasts, UpdateBanner } from './components/layout/Overlays';
@@ -89,6 +90,13 @@ export default function App() {
     window.scrollTo({ top: 0 });
   }, [screen]);
 
+  // Título principal (h1) de cada tela para leitores de tela; o pódio já tem o próprio h1 visível.
+  const pageTitle = !snapshot
+    ? 'Mascarenhas Hub — party games'
+    : snapshot.status === 'PLAYING'
+      ? `${getGame(snapshot.gameSlug)?.title ?? 'Partida'} — sala ${snapshot.code}`
+      : `Sala ${snapshot.code} — Mascarenhas Hub`;
+
   let content: ReactNode;
   if (booting) content = <Splash text="Carregando o Mascarenhas Hub…" />;
   else if (!snapshot) content = connection === 'connecting' ? <Splash text="Entrando na sala…" /> : <HomeScreen />;
@@ -101,7 +109,10 @@ export default function App() {
       <div className="flex min-h-screen flex-col">
         <Header onLeave={snapshot ? () => session.leave() : undefined} />
         <UpdateBanner />
-        <main className="flex-1">{content}</main>
+        <main className="flex-1">
+          {snapshot?.status !== 'PODIUM' && <h1 className="sr-only">{pageTitle}</h1>}
+          {content}
+        </main>
         <Footer />
       </div>
       <Toasts />

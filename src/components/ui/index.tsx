@@ -138,7 +138,7 @@ export function Modal({
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h3 className="neon-text-cyan text-xs font-bold uppercase tracking-[.18em] text-cyan-300">{children}</h3>
+      <h2 className="neon-text-cyan text-xs font-bold uppercase tracking-[.18em] text-cyan-300">{children}</h2>
       {right}
     </div>
   );
