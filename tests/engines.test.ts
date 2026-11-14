@@ -31,6 +31,23 @@ describe('Os 15 jogos do escopo chegam ao fim só por timeouts, com quedas e rec
     players.forEach((p) => expect(Number.isFinite(p.matchScore)).toBe(true));
   });
 
+  it.each(IN_SCOPE.map((g) => [g.title, g.slug] as const))('%s: anfitrião remove um jogador no meio da partida e ela não trava', (_title, slug) => {
+    const g = IN_SCOPE.find((x) => x.slug === slug)!;
+    const players = mkPlayers(Math.max(g.minPlayers + 1, 5));
+    const t = new Table(slug, players, { rounds: 3 }).start();
+    for (let i = 0; i < 5; i++) t.tick(1000);
+    // mesmo efeito do ROOM/KICK: sai da lista de jogadores e passa a contar como offline
+    const kicked = players[2].id;
+    t.players = players.filter((p) => p.id !== kicked);
+    t.offline.add(kicked);
+    let guard = 0;
+    while (t.pub.phase !== 'FINISHED' && guard++ < 20000) {
+      t.tick(1000);
+      t.views();
+    }
+    expect(t.pub.phase).toBe('FINISHED');
+  });
+
   it.each(IN_SCOPE.map((g) => [g.title, g.slug] as const))('%s: ações de quem não participa e lixo vindo da rede são ignorados', (_title, slug) => {
     const g = IN_SCOPE.find((x) => x.slug === slug)!;
     const t = new Table(slug, mkPlayers(Math.max(g.minPlayers, 4))).start();

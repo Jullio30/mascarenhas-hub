@@ -102,7 +102,7 @@ const OFFLINE_SKIP_MS = 5_000;
  * "participantes + 1" nunca corta uma partida que esteja progredindo normalmente.
  */
 export const maxCyclesFor = (participants: number) => participants + 1;
-export const IMPASSE_TEXT = 'Impasse no desempate! Ninguém foi eliminado nesta rodada';
+export const IMPASSE_TEXT = 'Empate sem decisão — ninguém foi eliminado nesta rodada';
 export const ESCAPE_REASON = 'Fuga do Infiltrado: o grupo não chegou a um consenso na votação final, e a falta de acordo favorece os Infiltrados!';
 
 /** 3 jogadores (modo rápido) e 4–6 → 1 infiltrado; 7–12 → 2 infiltrados. */

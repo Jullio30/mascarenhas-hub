@@ -52,7 +52,23 @@ function StatusList({ s, roster }: { s: QmpState; roster: Player[] }) {
   );
 }
 
-export default function QuemEMaisProvavel({ state: s, view, meId, players, config, send }: GameMatchProps<QmpState, QmpView>) {
+/** Estado 4: "aguardando os demais" — quem ainda falta (pronto na discussão, voto na votação). Offline não segura a rodada. */
+function WaitingFor({ s, roster, presence }: { s: QmpState; roster: Player[]; presence: Record<string, string> }) {
+  const pending = roster.filter((p) => (s.phase === 'DISCUSSION' ? !(s.readyIds ?? []).includes(p.id) && !s.votedIds.includes(p.id) : !s.votedIds.includes(p.id)));
+  if (pending.length === 0) return null;
+  const online = pending.filter((p) => presence[p.id] !== 'offline');
+  const offline = pending.filter((p) => presence[p.id] === 'offline');
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2 text-xs text-white/80" aria-live="polite">
+      <Hourglass size={13} className="text-white/60" aria-hidden />
+      <span className="font-bold">{s.phase === 'DISCUSSION' ? 'Aguardando ficar pronto:' : 'Aguardando voto de:'}</span>
+      {online.map((p) => p.nickname).join(', ') || '—'}
+      {offline.length > 0 && <span className="text-white/55">· offline (não segura a rodada): {offline.map((p) => p.nickname).join(', ')}</span>}
+    </div>
+  );
+}
+
+export default function QuemEMaisProvavel({ state: s, view, meId, players, presence, config, send }: GameMatchProps<QmpState, QmpView>) {
   const [pending, setPending] = useState<string | null>(null);
   const inRound = s.participants.includes(meId);
   const myVote = view?.myVote ?? pending;
@@ -111,6 +127,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
           ) : (
             <p className="text-center text-sm text-white/75">Você está assistindo.</p>
           )}
+          <WaitingFor s={s} roster={roster} presence={presence} />
           <StatusList s={s} roster={roster} />
         </Card>
       )}
@@ -135,6 +152,7 @@ export default function QuemEMaisProvavel({ state: s, view, meId, players, confi
               {s.votedIds.length}/{s.participants.length} votaram
             </Badge>
           </div>
+          <WaitingFor s={s} roster={roster} presence={presence} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {roster.map((p) => {
               const self = p.id === meId;
