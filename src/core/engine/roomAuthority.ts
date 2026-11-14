@@ -18,7 +18,7 @@ import type {
 } from '../../types/game.types';
 import { getGame, defaultConfigFor, REGISTERED_GAMES } from '../registry/gameRegistry';
 import { emptyStats, shiftTimestamps } from './helpers';
-import { sanitizeNickname } from '../../lib/textUtils';
+import { normalize, sanitizeNickname } from '../../lib/textUtils';
 import { AVATARS } from '../../data/avatars';
 import type { PlayerProfile } from '../realtime/roomChannel';
 import { resolveCustomItems } from '../contentPacks/contentPackManager';
@@ -52,6 +52,23 @@ export function makeInitialSnapshot(code: string, roomId: string | null, host: P
 }
 
 /** Perfil vindo da rede: apelido limpo (2–16) e avatar existente, sempre. */
+/**
+ * Apelido único na sala: se outro jogador já usa o mesmo nome (ignorando maiúsculas e acentos),
+ * acrescenta " 2", " 3"… — sem isso, votações com dois "João" ficam impossíveis de distinguir.
+ */
+export function uniqueNickname(nickname: string, selfId: string, players: readonly { id: string; nickname: string }[]): string {
+  // emojis somem no normalize: nesse caso compara o texto original (sem diferenciar maiúsculas)
+  const key = (s: string) => normalize(s) || s.toLowerCase();
+  const taken = new Set(players.filter((p) => p.id !== selfId).map((p) => key(p.nickname)));
+  if (!taken.has(key(nickname))) return nickname;
+  for (let n = 2; n < 100; n++) {
+    const suffix = ` ${n}`;
+    const candidate = `${nickname.slice(0, 16 - suffix.length).trimEnd()}${suffix}`;
+    if (!taken.has(key(candidate))) return candidate;
+  }
+  return nickname;
+}
+
 export function cleanProfile(profile: Partial<PlayerProfile> | null | undefined): PlayerProfile {
   const nick = sanitizeNickname(String(profile?.nickname ?? ''));
   const avatar = String(profile?.avatar ?? '');
@@ -153,6 +170,7 @@ export class RoomAuthority {
       keyAdded = r === 'added';
     }
     const profile = cleanProfile(rawProfile);
+    profile.nickname = uniqueNickname(profile.nickname, id, this.snap.players);
     const existing = this.snap.players.find((p) => p.id === id);
     if (existing) {
       if (!keyAdded && existing.nickname === profile.nickname && existing.avatar === profile.avatar) {

@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#090A0F",
-  "theme_color": "#8B5CF6",
+  "theme_color": "#150E2C",
   "lang": "pt-BR",
   "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }
