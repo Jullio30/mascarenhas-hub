@@ -1,0 +1,13 @@
+{
+  "name": "Mascarenhas Hub",
+  "short_name": "Mascarenhas Hub",
+  "description": "Party games multiplayer para reunir os amigos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090A0F",
+  "theme_color": "#8B5CF6",
+  "lang": "pt-BR",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
